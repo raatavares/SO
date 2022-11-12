@@ -31,7 +31,12 @@ void leituraItens(){
 int main(int argc, char *argv[]){
     char comando[50], arg[20];
 
-    
+    if (getenv("FPROMOTERS") != NULL)
+        strcpy(fileFP, getenv("FPROMOTERS"));
+    if (getenv("FUSERS") != NULL)
+        strcpy(fileFU, getenv("FUSERS"));
+    if (getenv("FITEMS") != NULL)
+        strcpy(fileFI, getenv("FITEMS"));
 
 
 
