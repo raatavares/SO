@@ -2,8 +2,9 @@
 #include<stdlib.h>
 #include<string.h>
 #include"header.h"
+//#include"users_lib.h"
 
-void comandos() {
+void comandos(){
     printf("========== Comando ========== \n");
     printf("help - Lista de Comandos \n");
     printf("users - Lista de Utilizadores \n");
@@ -38,6 +39,11 @@ int main(int argc, char *argv[]){
     if (getenv("FITEMS") != NULL)
         strcpy(fileFI, getenv("FITEMS"));
 
+
+    //if (isUserValid("paulo", "paulo2") == -1)
+    //    printf("Funciona");
+    //if (isUserValid("paulo", "paulo1") == 0)
+    //    printf("Funciona");
 
 
     comandos();
