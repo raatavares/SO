@@ -19,6 +19,15 @@ void comandos(){
 }
 
 int main(int argc, char *argv[]){
+    if(argc != 3){
+        printf("Insira username e password\n");
+        return 0;
+    }
+    char username[TAM];
+    char password[TAM];
+    strcpy(username, argv[1]);
+    strcpy(password, argv[2]);
+    printf("\n\n *** Bem Vindo %s ***\n\n", username);
 
 
     comandos();
