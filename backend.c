@@ -4,6 +4,8 @@
 #include"header.h"
 #include"users_lib.h"
 
+
+
 void comandos(){
     printf("========== Comando ========== \n");
     printf("help - Lista de Comandos \n");
@@ -29,8 +31,22 @@ void leituraItens(){
 
 }
 
+int atualizaLista(int numUsers, user users[]) {
+    int nlidos;
+    nlidos = loadUsersFile(FUSERS);
+    for(int i = 0; i < nlidos; i++){
+        users[i].saldo = users[i].saldo - 1;
+    }
+    numUsers = numUsers + nlidos;
+    printf("\nForam lidos: %d \n", nlidos);
+    return numUsers;
+}
+
 int main(int argc, char *argv[]){
     char comando[50], arg[50];
+    int numUsers = 0;
+
+    user listaUsers[MAXUSERS];
 
     if (getenv("FPROMOTERS") != NULL)
         strcpy(fileFP, getenv("FPROMOTERS"));
@@ -40,6 +56,7 @@ int main(int argc, char *argv[]){
         strcpy(fileFI, getenv("FITEMS"));
 
 
+    numUsers = atualizaLista(numUsers, listaUsers);
 
     comandos();
     do{
@@ -51,6 +68,9 @@ int main(int argc, char *argv[]){
         }
         if(strcmp(comando, "users\0") == 0){
             printf("comando valido \n");
+            for(int i = 0; i < numUsers ; i++){
+                printf("\n %s \n", listaUsers[i].username);
+            }
         }
         if(strcmp(comando, "list\0") == 0){
             printf("comando valido \n");

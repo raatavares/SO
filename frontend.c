@@ -30,6 +30,10 @@ int main(int argc, char *argv[]){
     printf("\n\n *** Bem Vindo %s ***\n\n", username);
 
 
+    if (getenv("HEARTBEAT") != NULL)
+        nmaxalive = atoi(getenv("HEARTBEAT"));
+
+
     comandos();
 
 }
