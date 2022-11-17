@@ -35,5 +35,44 @@ int main(int argc, char *argv[]){
 
 
     comandos();
+    do{
+        printf("Introduza um comando: ");
+        fgets(comando,50,stdin);
+        comando[strlen(comando) - 1] = '\0';
+        if(strcmp(comando, "sell\0") == 0){
+            printf("comando valido \n"); // sell <name> <category> <value> <current_value> <duration>
+        }
+        if(strcmp(comando, "list\0") == 0){
+            printf("comando valido \n"); // list
+        }
+        if(strcmp(comando, "licat\0") == 0){
+            printf("comando valido \n"); // licat <category>
+        }
+        if(strcmp(comando, "lisel\0") == 0){
+            printf("comando valido \n"); // lisel <user_sell>
+        }
+        if(strcmp(comando, "lival\0") == 0){
+            printf("comando valido \n"); // lival <
+        }
+        if(strcmp(comando, "litime\0") == 0){
+            printf("comando valido \n"); // litime <
+        }
+        if(strcmp(comando, "timet\0") == 0){
+            printf("comando valido \n"); // time
+        }
+        if(strcmp(comando, "buy\0") == 0){
+            printf("comando valido \n"); // buy <IDitem> <value>
+        }
+        if(strcmp(comando, "cash\0") == 0){
+            printf("comando valido \n"); // cash
+        }
+        if(strcmp(comando, "add\0") == 0){
+            printf("comando valido \n"); // add value
+        }
+        if(strcmp(comando, "exit\0") == 0){
+            printf("\n A sair...\n"); //exit
+        }
+
+    }while(strcmp(comando, "exit"));
 
 }
