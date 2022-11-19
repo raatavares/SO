@@ -1,6 +1,8 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
+#include<unistd.h>
+#include<sys/wait.h>
 #include"header.h"
 #include"users_lib.h"
 
@@ -22,8 +24,26 @@ void comandos(){
 
 }
 
+
+
 void promotores(){
+    char frase[TAM];
     
+    int pl[2], estado;
+    pipe(pl);
+    int res=fork();
+    if(res == 0){
+        close(1);//fechar acesso ao monitor
+        dup(pl[1]);//duplicar p[1] na primeira posição do pipe
+        close(pl[0]);//fechar extremidade de leitura do pipe
+        close(pl[1]);//fechar extremidade de escrita do pipe
+        execl("black_friday", "black_friday", NULL);
+    }
+    close(pl[1]);
+    read(pl[0], &frase, TAM);
+    close(pl[0]);
+    wait(&estado);
+    printf("Promocao: %s\n", frase);
 }
 
 int atualizaLista(int numUsers, user user[]) {
@@ -49,8 +69,8 @@ int le_itens(int numItens, item items[]) {
         printf("\nNao foi possivel abrir o ficheiro dos itens\n");
         return numItens;
     }
-    while(numItens < MAXITEMS && fscanf(file, "%d %s %s %d %d %d %s %s", items[numItens-1].IDitem, items[numItens-1].name, items[numItens-1].category, items[numItens-1].current_value, items[numItens-1].value, items[numItens-1].duration, items[numItens-1].user_sell, items[numItens-1].user_buyer)){
-        printf("lido item: %s", items[numItens-1].name);
+    while(numItens < MAXITEMS && fscanf(file, "%d %s %s %d %d %d %s %s\n", &items[numItens].IDitem, items[numItens].name, items[numItens].category, &items[numItens].current_value, &items[numItens].value, &items[numItens].duration, items[numItens].user_sell, items[numItens].user_buyer)!=EOF){
+        printf("Lido item: %s\n", items[numItens].name);
         numItens++;
     }
     fclose(file);

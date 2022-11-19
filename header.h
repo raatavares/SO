@@ -27,3 +27,13 @@ typedef struct items{
     char user_sell[TAM];
     char user_buyer[TAM];
 }item;
+
+typedef struct promocoes{
+    char category[TAM];
+    int descont;
+    int duration;
+}promocao;
+
+typedef struct promotores{
+    char name[TAM];
+}promotor;
