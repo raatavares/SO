@@ -16,37 +16,53 @@ void comandos(){
     printf("reprom - Atualizar promotores \n");
     printf("cancel - Cancelar um Promotor \n");
     printf("close - Encerrar um Programa \n");
-}
-
-void promotores(){  //falta ficheiro do prof
-
-}
-
-void atualizaUtilizadores(){    //Falta biblioteca
-    //loadUsersFile();
-    //saveUsersFile();
-}
-
-void leituraItens(){
+    printf("atualiza - Teste -> Atualizar utilizadores \n");
+    printf("leitura - Teste -> Leitura de Itens \n");
+    printf("promotor - Teste -> Conexão com promotores \n");
 
 }
 
-int atualizaLista(int numUsers, user users[]) {
-    int nlidos;
+void promotores(){
+    
+}
+
+int atualizaLista(int numUsers, user user[]) {
+    int nlidos, saldo;
     nlidos = loadUsersFile(FUSERS);
-    for(int i = 0; i < nlidos; i++){
-        users[i].saldo = users[i].saldo - 1;
-    }
+    printf("\nHa %d utilizadores no sistema\n", nlidos);
     numUsers = numUsers + nlidos;
-    printf("\nForam lidos: %d \n", nlidos);
+    saldo = getUserBalance("Paulo");
+    updateUserBalance("Paulo", saldo-1);
+    saveUsersFile(FUSERS);
     return numUsers;
+}
+
+int le_itens(int numItens, item items[]) {
+    if(numItens == MAXITEMS){
+        printf("Nao e possivel ler mais itens\n");
+        return numItens;
+    }
+    
+    FILE *file;
+    file = fopen(fileFI, "rt");
+    if(file == NULL){
+        printf("\nNao foi possivel abrir o ficheiro dos itens\n");
+        return numItens;
+    }
+    while(numItens < MAXITEMS && fscanf(file, "%d %s %s %d %d %d %s %s", items[numItens-1].IDitem, items[numItens-1].name, items[numItens-1].category, items[numItens-1].current_value, items[numItens-1].value, items[numItens-1].duration, items[numItens-1].user_sell, items[numItens-1].user_buyer)){
+        printf("lido item: %s", items[numItens-1].name);
+        numItens++;
+    }
+    fclose(file);
+    return numItens;
 }
 
 int main(int argc, char *argv[]){
     char comando[50], arg[50];
-    int numUsers = 0;
+    int numUsers = 0, numItens = 0;
 
     user listaUsers[MAXUSERS];
+    item items[MAXITEMS];
 
     if (getenv("FPROMOTERS") != NULL)
         strcpy(fileFP, getenv("FPROMOTERS"));
@@ -55,8 +71,6 @@ int main(int argc, char *argv[]){
     if (getenv("FITEMS") != NULL)
         strcpy(fileFI, getenv("FITEMS"));
 
-
-    numUsers = atualizaLista(numUsers, listaUsers);
 
     comandos();
     do{
@@ -99,6 +113,15 @@ int main(int argc, char *argv[]){
         }
         if(strcmp(comando, "close\0") == 0){
             printf("\n A sair...\n");
+        }
+        if(strcmp(comando, "atualiza\0") == 0){
+            numUsers = atualizaLista(numUsers, listaUsers);
+        }
+        if(strcmp(comando, "leitura\0") == 0){
+            numItens = le_itens(numItens, items);
+        }
+        if(strcmp(comando, "promotor\0") == 0){
+            promotores();
         }
 
     }while(strcmp(comando, "close"));
