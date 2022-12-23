@@ -46,13 +46,18 @@ void promotores(){
     printf("Promocao: %s\n", frase);
 }
 
-int atualizaLista(int numUsers, user user[]) {
+int atualizaLista(int numUsers, user user[], char nome[]) {
     int nlidos, saldo;
     nlidos = loadUsersFile(FUSERS);
-    printf("\nHa %d utilizadores no sistema\n", nlidos);
     numUsers = numUsers + nlidos;
-    saldo = getUserBalance("Paulo");
-    updateUserBalance("Paulo", saldo-1);
+    if(getUserBalance(nome) == -1){
+        printf("Nao existe ninguem com esse nome!\n");
+        return -1;
+
+    }
+
+    saldo = getUserBalance(nome);
+    updateUserBalance(nome, saldo-1);
     saveUsersFile(FUSERS);
     return numUsers;
 }
@@ -77,12 +82,33 @@ int le_itens(int numItens, item items[]) {
     return numItens;
 }
 
+int le_users(int numUsers, user users[]) {
+    if(numUsers == MAXUSERS){
+        printf("Nao e possivel ler mais users\n");
+        return numUsers;
+    }
+    
+    FILE *file;
+    file = fopen(fileFU, "rt");
+    if(file == NULL){
+        printf("\nNao foi possivel abrir o ficheiro dos users\n");
+        return numUsers;
+    }
+    while(numUsers < MAXUSERS && fscanf(file, "%s %s %d\n", users[numUsers].username, users[numUsers].password, &users[numUsers].saldo)!=EOF){
+        printf("Lido user: %s\n", users[numUsers].username);
+        numUsers++;
+    }
+    fclose(file);
+    return numUsers;
+}
+
 int main(int argc, char *argv[]){
     char comando[50], arg[50];
-    int numUsers = 0, numItens = 0;
+    int numUsers = 0, numItens = 0, numProm = 0;
 
     user listaUsers[MAXUSERS];
     item items[MAXITEMS];
+    promotor listaProm[MAXPROMOTERS];
 
     if (getenv("FPROMOTERS") != NULL)
         strcpy(fileFP, getenv("FPROMOTERS"));
@@ -101,13 +127,18 @@ int main(int argc, char *argv[]){
             comandos();
         }
         if(strcmp(comando, "users\0") == 0){
-            printf("comando valido \n");
+            if( numUsers == 0)
+                printf("Nao existem users!\n");
             for(int i = 0; i < numUsers ; i++){
-                printf("\n %s \n", listaUsers[i].username);
+                printf("Users: %s \n", listaUsers[i].username);
             }
         }
         if(strcmp(comando, "list\0") == 0){
-            printf("comando valido \n");
+            if( numItens == 0)
+                printf("Nao existem itens!\n");
+            for(int i = 0; i < numItens ; i++){
+                printf("Item %d - %s: (categoria)%s (preco atual)%d (preco base)%d (vendedor)%s (comprador)%s \n", items[i].IDitem, items[i].name, items[i].category, items[i].current_value, items[i].value, items[i].user_sell, items[i].user_buyer);
+            }
         }
         if(strncmp(comando, "kick", 4) == 0){
             if(strcmp(comando, "kick\0") != 0){ 
@@ -118,7 +149,11 @@ int main(int argc, char *argv[]){
             printf("E necessario definir o user a ser expulso \n");
         }
         if(strcmp(comando, "prom\0") == 0){
-            printf("comando valido \n");
+            if( numProm == 0)
+                printf("Nao existem promocoes!\n");
+            for(int i = 0; i < numProm ; i++){
+                printf("Promotor: %s \n", listaProm[i].name);
+            }
         }
         if(strcmp(comando, "reprom\0") == 0){
             printf("comando valido \n");
@@ -134,11 +169,18 @@ int main(int argc, char *argv[]){
         if(strcmp(comando, "close\0") == 0){
             printf("\n A sair...\n");
         }
-        if(strcmp(comando, "atualiza\0") == 0){
-            numUsers = atualizaLista(numUsers, listaUsers);
+        if(strncmp(comando, "atualiza", 8) == 0){
+            if(strcmp(comando, "atualiza\0") != 0){ 
+                strcpy(arg, strtok(comando, " "));
+                strcpy(arg, strtok(NULL, " "));
+                if((numUsers = atualizaLista(numUsers, listaUsers, arg)) != -1)
+                    printf("%s foi atualizado\n", arg);
+            }else
+                printf("E necessario definir o nome a ser atualizado \n");
         }
         if(strcmp(comando, "leitura\0") == 0){
             numItens = le_itens(numItens, items);
+            numUsers = le_users(numUsers, listaUsers);
         }
         if(strcmp(comando, "promotor\0") == 0){
             promotores();
