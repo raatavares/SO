@@ -1,7 +1,6 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
 #include"header.h"
+
+int fd_serv, fd_cli;
 
 void comandos(){
     printf("========== Comando ========== \n");
@@ -30,13 +29,38 @@ int contaWords(char str[]){
     return nword;
 }
 
+int login(user utilizador){
+    int res;
+    char resposta[50];
+    fd_serv = open(PIPE_FRONT_BACK, O_WRONLY);
+    res = write(fd_serv, &utilizador, sizeof(utilizador));
+
+    sprintf(utilizador.pipe_name, PIPE_BACK_FRONT, getpid());
+    if(mkfifo(utilizador.pipe_name, 0600) == -1){
+        printf("[ERROR] Ao criar o pipe\n");
+        return 0;
+    }
+    fd_cli = open(utilizador.pipe_name,O_RDWR);
+
+    res = read(fd_cli, resposta, sizeof(resposta));
+    if(strcmp(resposta, "ACEITE") == 0)
+        return 1;
+    return 0;
+}
+
 int main(int argc, char *argv[]){
     char comando[50], arg[50];
     user utilizador;
-    int numItens = 0;
+    int numItens = 0, res, valido = 0;
     item items[MAXITEMS];
-    int valido = 0;
+    fd_set fontes;
+    struct timeval t;
     
+    
+    /*if(access(PIPE_FRONT_BACK, F_OK) != 0){
+        printf("[ERROR] Nao existe backend em execucao\n");
+        return 0;
+    }*/
 
     if(argc != 3){
         printf("Insira username e password\n");
@@ -46,6 +70,8 @@ int main(int argc, char *argv[]){
     strcpy(utilizador.password, argv[2]);
     printf("\n\n *** Bem Vindo %s ***\n\n", utilizador.username);
 
+    if( login(utilizador) == 0)
+        return 0;
 
     if (getenv("HEARTBEAT") != NULL)
         nmaxalive = atoi(getenv("HEARTBEAT"));
@@ -53,130 +79,142 @@ int main(int argc, char *argv[]){
 
     comandos();
     do{
-        valido = 0;
-        printf("\nIntroduza um comando: ");
-        fgets(comando,50,stdin);
-        comando[strlen(comando) - 1] = '\0';
-        if(strncmp(comando, "sell", 4) == 0){
-            if(contaWords(comando) == 6){
-                strcpy(arg, strtok(comando, " "));
-                strcpy(arg, strtok(NULL, " "));
-                strcpy(arg, strtok(NULL, " "));
-                strcpy(arg, strtok(NULL, " "));
-                strcpy(arg, strtok(NULL, " "));
-                strcpy(arg, strtok(NULL, " "));
-                printf("\n*Item colocado a leilao\n");
-            }
-            else{
-                printf("E necessario definir o nome, categoria, preco_base, preco_compre_ja, duracao \n"); // sell <name> <category> <value> <current_value> <duration>
-            }
-        }
-        if(strcmp(comando, "list\0") == 0){
-            if( numItens == 0)
-                printf("Nao existem itens!\n");
-            for(int i = 0; i < numItens ; i++){
-                printf("Item %d - %s: (categoria)%s (preco atual)%d (preco base)%d (vendedor)%s \n", items[i].IDitem, items[i].name, items[i].category, items[i].current_value, items[i].value, items[i].user_sell);
-            }
-        }
-        if(strncmp(comando, "licat", 5) == 0){
-            if(strcmp(comando, "licat\0") != 0){
-                strcpy(arg, strtok(comando, " "));
-                strcpy(arg, strtok(NULL, " "));
-                for(int i = 0; i < numItens ; i++){
-                    if(strcmp(items[i].category, arg) == 0){
-                        printf("Item %d - %s: (preco atual)%d (preco base)%d \n", items[i].IDitem, items[i].name, items[i].current_value, items[i].value);
-                        valido = 1;
-                    }
+        printf("Introduza um comando: ");
+        fflush(stdout);
+
+        FD_ZERO(&fontes);
+        FD_SET(0, &fontes);
+        FD_SET(fd_cli, &fontes);
+        res = select(fd_cli + 1, &fontes, NULL, NULL, &t);
+
+        if(res > 0 && FD_ISSET(0, &fontes)){        //VEIO DO TECLADO
+            valido = 0;
+            fgets(comando,50,stdin);
+            comando[strlen(comando) - 1] = '\0';
+            if(strncmp(comando, "sell", 4) == 0){
+                if(contaWords(comando) == 6){
+                    strcpy(arg, strtok(comando, " "));
+                    strcpy(arg, strtok(NULL, " "));
+                    strcpy(arg, strtok(NULL, " "));
+                    strcpy(arg, strtok(NULL, " "));
+                    strcpy(arg, strtok(NULL, " "));
+                    strcpy(arg, strtok(NULL, " "));
+                    printf("\n*Item colocado a leilao\n");
                 }
-                if(valido == 0)
-                    printf("Nao existem itens na categoria %s", arg);
-            }
-            else{
-                printf("E necessario definir a categoria \n");
-            }
-        }
-        if(strncmp(comando, "lisel", 5) == 0){
-            if(strcmp(comando, "lisel\0") != 0){
-                strcpy(arg, strtok(comando, " "));
-                strcpy(arg, strtok(NULL, " "));
-                for(int i = 0; i < numItens ; i++){
-                    if(strcmp(items[i].user_sell, arg) == 0){
-                        printf("Item %d - %s: (categoria)%s (preco atual)%d (preco base)%d \n", items[i].IDitem, items[i].name, items[i].category, items[i].current_value, items[i].value);
-                        valido = 1;
-                    }
+                else{
+                    printf("E necessario definir o nome, categoria, preco_base, preco_compre_ja, duracao \n"); // sell <name> <category> <value> <current_value> <duration>
                 }
-                if(valido == 0)
-                    printf("Nao existem itens vendidos por %s", arg);
             }
-            else{
-                printf("E necessario definir o vendedor \n"); 
-            }
-        }
-        if(strncmp(comando, "lival", 5) == 0){
-            if(strcmp(comando, "lival\0") != 0){
-                strcpy(arg, strtok(comando, " "));
-                strcpy(arg, strtok(NULL, " "));
+            if(strcmp(comando, "list\0") == 0){
+                if( numItens == 0)
+                    printf("Nao existem itens!\n");
                 for(int i = 0; i < numItens ; i++){
-                    if(items[i].value <= atoi(arg)){
-                        printf("Item %d - %s: (categoria)%s (preco atual)%d (preco base)%d \n", items[i].IDitem, items[i].name, items[i].category, items[i].current_value, items[i].value);
-                        valido = 1;
-                    }
+                    printf("Item %d - %s: (categoria)%s (preco atual)%d (preco base)%d (vendedor)%s \n", items[i].IDitem, items[i].name, items[i].category, items[i].current_value, items[i].value, items[i].user_sell);
                 }
-                if(valido == 0)
-                    printf("Nao existem itens ate %d€", atoi(arg));
             }
-            else{
-                printf("E necessario definir o valor \n"); 
-            }
-        }
-        if(strncmp(comando, "litime", 6) == 0){
-            if(strcmp(comando, "litime\0") != 0){
-                strcpy(arg, strtok(comando, " "));
-                strcpy(arg, strtok(NULL, " "));
-                for(int i = 0; i < numItens ; i++){
-                    if(items[i].duration <= atoi(arg)){
-                        printf("Item %d - %s: (categoria)%s (preco atual)%d (preco base)%d \n", items[i].IDitem, items[i].name, items[i].category, items[i].current_value, items[i].value);
-                        valido = 1;
+            if(strncmp(comando, "licat", 5) == 0){
+                if(strcmp(comando, "licat\0") != 0){
+                    strcpy(arg, strtok(comando, " "));
+                    strcpy(arg, strtok(NULL, " "));
+                    for(int i = 0; i < numItens ; i++){
+                        if(strcmp(items[i].category, arg) == 0){
+                            printf("Item %d - %s: (preco atual)%d (preco base)%d \n", items[i].IDitem, items[i].name, items[i].current_value, items[i].value);
+                            valido = 1;
+                        }
                     }
+                    if(valido == 0)
+                        printf("Nao existem itens na categoria %s", arg);
                 }
-                if(valido == 0)
-                    printf("Nao existem itens ate %d segundos", atoi(arg));
+                else{
+                    printf("E necessario definir a categoria \n");
+                }
             }
-            else{
-                printf("E necessario definir um prazo(em segundos) \n"); // litime <hora-em-segundos>
+            if(strncmp(comando, "lisel", 5) == 0){
+                if(strcmp(comando, "lisel\0") != 0){
+                    strcpy(arg, strtok(comando, " "));
+                    strcpy(arg, strtok(NULL, " "));
+                    for(int i = 0; i < numItens ; i++){
+                        if(strcmp(items[i].user_sell, arg) == 0){
+                            printf("Item %d - %s: (categoria)%s (preco atual)%d (preco base)%d \n", items[i].IDitem, items[i].name, items[i].category, items[i].current_value, items[i].value);
+                            valido = 1;
+                        }
+                    }
+                    if(valido == 0)
+                        printf("Nao existem itens vendidos por %s", arg);
+                }
+                else{
+                    printf("E necessario definir o vendedor \n"); 
+                }
             }
-        }
-        if(strcmp(comando, "time\0") == 0){
-            printf("comando valido \n"); // time
-        }
-        if(strncmp(comando, "buy", 3) == 0){
-            if(contaWords(comando)==3){
-                strcpy(arg, strtok(comando, " "));
-                strcpy(arg, strtok(NULL, " "));
-                strcpy(arg, strtok(NULL, " "));
-                printf("\n*Item licitado %s\n", arg);
+            if(strncmp(comando, "lival", 5) == 0){
+                if(strcmp(comando, "lival\0") != 0){
+                    strcpy(arg, strtok(comando, " "));
+                    strcpy(arg, strtok(NULL, " "));
+                    for(int i = 0; i < numItens ; i++){
+                        if(items[i].value <= atoi(arg)){
+                            printf("Item %d - %s: (categoria)%s (preco atual)%d (preco base)%d \n", items[i].IDitem, items[i].name, items[i].category, items[i].current_value, items[i].value);
+                            valido = 1;
+                        }
+                    }
+                    if(valido == 0)
+                        printf("Nao existem itens ate %d€", atoi(arg));
+                }
+                else{
+                    printf("E necessario definir o valor \n"); 
+                }
             }
-            else{
-                printf("E necessario definir o id e o valor \n"); // buy <IDitem> <value>
+            if(strncmp(comando, "litime", 6) == 0){
+                if(strcmp(comando, "litime\0") != 0){
+                    strcpy(arg, strtok(comando, " "));
+                    strcpy(arg, strtok(NULL, " "));
+                    for(int i = 0; i < numItens ; i++){
+                        if(items[i].duration <= atoi(arg)){
+                            printf("Item %d - %s: (categoria)%s (preco atual)%d (preco base)%d \n", items[i].IDitem, items[i].name, items[i].category, items[i].current_value, items[i].value);
+                            valido = 1;
+                        }
+                    }
+                    if(valido == 0)
+                        printf("Nao existem itens ate %d segundos", atoi(arg));
+                }
+                else{
+                    printf("E necessario definir um prazo(em segundos) \n"); // litime <hora-em-segundos>
+                }
             }
-        }
-        if(strcmp(comando, "cash\0") == 0){
-            printf("Saldo: %d \n", utilizador.saldo);
-        }
-        if(strncmp(comando, "add", 3) == 0){
-            if(strcmp(comando, "add\0") != 0){
-                strcpy(arg, strtok(comando, " "));
-                strcpy(arg, strtok(NULL, " "));
-                printf("\n*Carregado: %s€ \n", arg);
+            if(strcmp(comando, "time\0") == 0){
+                printf("comando valido \n"); // time
             }
-            else{
-                printf("E necessario definir o valor que deseja carregar\n"); // add <value>
+            if(strncmp(comando, "buy", 3) == 0){
+                if(contaWords(comando)==3){
+                    strcpy(arg, strtok(comando, " "));
+                    strcpy(arg, strtok(NULL, " "));
+                    strcpy(arg, strtok(NULL, " "));
+                    printf("\n*Item licitado %s\n", arg);
+                }
+                else{
+                    printf("E necessario definir o id e o valor \n"); // buy <IDitem> <value>
+                }
             }
-        }
-        if(strcmp(comando, "exit\0") == 0){
-            printf("\n*A sair...\n"); //exit
+            if(strcmp(comando, "cash\0") == 0){
+                printf("Saldo: %d \n", utilizador.saldo);
+            }
+            if(strncmp(comando, "add", 3) == 0){
+                if(strcmp(comando, "add\0") != 0){
+                    strcpy(arg, strtok(comando, " "));
+                    strcpy(arg, strtok(NULL, " "));
+                    printf("\n*Carregado: %s€ \n", arg);
+                }
+                else{
+                    printf("E necessario definir o valor que deseja carregar\n"); // add <value>
+                }
+            }
+            if(strcmp(comando, "exit\0") == 0){
+                printf("\n*A sair...\n"); //exit
+            }
+        }else if(res > 0 && FD_ISSET(fd_cli, &fontes)){        //VEIO DO PIPE DO SERVIDOR
+            printf("recebeu do pipe\n");
         }
 
     }while(strcmp(comando, "exit"));
-
+    close(fd_cli);
+    close(fd_serv);
 }

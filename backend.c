@@ -1,8 +1,3 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-#include<unistd.h>
-#include<sys/wait.h>
 #include"header.h"
 #include"users_lib.h"
 
@@ -102,11 +97,36 @@ int le_users(int numUsers, user users[]) {
     return numUsers;
 }
 
-int main(int argc, char *argv[]){
-    char comando[50], arg[50];
-    int numUsers = 0, numItens = 0, numProm = 0;
+void adicionaUsers(user aux, user users[], int numUsers){
+    printf("Novo utilizador: %s\n", aux.username);
+    strcpy(users[numUsers].password,aux.password);
+    strcpy(users[numUsers].username,aux.username);
+    users[numUsers].saldo=aux.saldo;
+    strcpy(users[numUsers].pipe_name,aux.pipe_name);
+    numUsers++;
+}
 
-    user listaUsers[MAXUSERS];
+int main(int argc, char *argv[]){
+    char comando[50], arg[50], mensagem[50];
+    int numUsers = 0, numItens = 0, numProm = 0, res, fd_cli;
+    fd_set fontes;
+    struct timeval t;
+
+    
+    if(access(PIPE_FRONT_BACK, F_OK) == 0){
+        printf("[ERROR] Backend ja esta em execucao\n");
+        return 0;
+    }
+    res = mkfifo("/home/ricardo/partilha/SO/SERV", 0666);
+    if(res != 0){
+        printf("[ERROR] Ao criar o pipe %d\n", res);
+        return 0;
+    }
+    int fd_serv = open(PIPE_FRONT_BACK, O_RDWR);
+    
+    
+
+    user listaUsers[MAXUSERS], aux;
     item items[MAXITEMS];
     promotor listaProm[MAXPROMOTERS];
 
@@ -121,70 +141,93 @@ int main(int argc, char *argv[]){
     comandos();
     do{
         printf("Introduza um comando: ");
-        fgets(comando,50,stdin);
-        comando[strlen(comando) - 1] = '\0';
-        if(strcmp(comando, "help\0") == 0){
-            comandos();
-        }
-        if(strcmp(comando, "users\0") == 0){
-            if( numUsers == 0)
-                printf("Nao existem users!\n");
-            for(int i = 0; i < numUsers ; i++){
-                printf("Users: %s \n", listaUsers[i].username);
+        fflush(stdout);
+
+        FD_ZERO(&fontes);
+        FD_SET(0, &fontes);
+        FD_SET(fd_serv, &fontes);
+        res = select(fd_serv + 1, &fontes, NULL, NULL, &t);
+
+        if(res > 0 && FD_ISSET(0, &fontes)){        //VEIO DO TECLADO
+            fgets(comando,50,stdin);
+            comando[strlen(comando) - 1] = '\0';
+            if(strcmp(comando, "help\0") == 0){
+                comandos();
             }
-        }
-        if(strcmp(comando, "list\0") == 0){
-            if( numItens == 0)
-                printf("Nao existem itens!\n");
-            for(int i = 0; i < numItens ; i++){
-                printf("Item %d - %s: (categoria)%s (preco atual)%d (preco base)%d (vendedor)%s (comprador)%s \n", items[i].IDitem, items[i].name, items[i].category, items[i].current_value, items[i].value, items[i].user_sell, items[i].user_buyer);
+            if(strcmp(comando, "users\0") == 0){
+                if( numUsers == 0)
+                    printf("Nao existem users!\n");
+                for(int i = 0; i < numUsers ; i++){
+                    printf("Users: %s \n", listaUsers[i].username);
+                }
             }
-        }
-        if(strncmp(comando, "kick", 4) == 0){
-            if(strcmp(comando, "kick\0") != 0){ 
-                strcpy(arg, strtok(comando, " "));
-                strcpy(arg, strtok(NULL, " "));
-                printf("\n Kick do user %s \n", arg);
+            if(strcmp(comando, "list\0") == 0){
+                if( numItens == 0)
+                    printf("Nao existem itens!\n");
+                for(int i = 0; i < numItens ; i++){
+                    printf("Item %d - %s: (categoria)%s (preco atual)%d (preco base)%d (vendedor)%s (comprador)%s \n", items[i].IDitem, items[i].name, items[i].category, items[i].current_value, items[i].value, items[i].user_sell, items[i].user_buyer);
+                }
             }
-            printf("E necessario definir o user a ser expulso \n");
-        }
-        if(strcmp(comando, "prom\0") == 0){
-            if( numProm == 0)
-                printf("Nao existem promocoes!\n");
-            for(int i = 0; i < numProm ; i++){
-                printf("Promotor: %s \n", listaProm[i].name);
+            if(strncmp(comando, "kick", 4) == 0){
+                if(strcmp(comando, "kick\0") != 0){ 
+                    strcpy(arg, strtok(comando, " "));
+                    strcpy(arg, strtok(NULL, " "));
+                    printf("\n Kick do user %s \n", arg);
+                }
+                printf("E necessario definir o user a ser expulso \n");
             }
-        }
-        if(strcmp(comando, "reprom\0") == 0){
-            printf("comando valido \n");
-        }
-        if(strncmp(comando, "cancel", 6) == 0){
-            if(strcmp(comando, "cancel\0") != 0){ 
-                strcpy(arg, strtok(comando, " "));
-                strcpy(arg, strtok(NULL, " "));
-                printf("\n cancel do user %s \n", arg);
+            if(strcmp(comando, "prom\0") == 0){
+                if( numProm == 0)
+                    printf("Nao existem promocoes!\n");
+                for(int i = 0; i < numProm ; i++){
+                    printf("Promotor: %s \n", listaProm[i].name);
+                }
             }
-            printf("E necessario definir o promotor a ser cancelado \n");
-        }
-        if(strcmp(comando, "close\0") == 0){
-            printf("\n A sair...\n");
-        }
-        if(strncmp(comando, "atualiza", 8) == 0){
-            if(strcmp(comando, "atualiza\0") != 0){ 
-                strcpy(arg, strtok(comando, " "));
-                strcpy(arg, strtok(NULL, " "));
-                if((numUsers = atualizaLista(numUsers, listaUsers, arg)) != -1)
-                    printf("%s foi atualizado\n", arg);
-            }else
-                printf("E necessario definir o nome a ser atualizado \n");
-        }
-        if(strcmp(comando, "leitura\0") == 0){
-            numItens = le_itens(numItens, items);
-            numUsers = le_users(numUsers, listaUsers);
-        }
-        if(strcmp(comando, "promotor\0") == 0){
-            promotores();
+            if(strcmp(comando, "reprom\0") == 0){
+                printf("comando valido \n");
+            }
+            if(strncmp(comando, "cancel", 6) == 0){
+                if(strcmp(comando, "cancel\0") != 0){ 
+                    strcpy(arg, strtok(comando, " "));
+                    strcpy(arg, strtok(NULL, " "));
+                    printf("\n cancel do user %s \n", arg);
+                }
+                printf("E necessario definir o promotor a ser cancelado \n");
+            }
+            if(strcmp(comando, "close\0") == 0){
+                printf("\n A sair...\n");
+            }
+            if(strncmp(comando, "atualiza", 8) == 0){
+                if(strcmp(comando, "atualiza\0") != 0){ 
+                    strcpy(arg, strtok(comando, " "));
+                    strcpy(arg, strtok(NULL, " "));
+                    if((numUsers = atualizaLista(numUsers, listaUsers, arg)) != -1)
+                        printf("%s foi atualizado\n", arg);
+                }else
+                    printf("E necessario definir o nome a ser atualizado \n");
+            }
+            if(strcmp(comando, "leitura\0") == 0){
+                numItens = le_itens(numItens, items);
+                numUsers = le_users(numUsers, listaUsers);
+            }
+            if(strcmp(comando, "promotor\0") == 0){
+                promotores();
+            }
+        }else if(res > 0 && FD_ISSET(fd_serv, &fontes)){        //VEIO DO PIPE DO SERVIDOR
+            res = read(fd_serv, &aux, sizeof(aux));
+            if (isUserValid(aux.username, aux.password) == 1 && numUsers < MAXUSERS){
+                adicionaUsers(aux, listaUsers, numUsers); 
+                strcpy(mensagem, "ACEITE");
+            }else {
+                strcpy(mensagem, "RECUSADO");
+            }
+            fd_cli = open(aux.pipe_name, O_RDWR);
+            res = write(fd_cli, mensagem, sizeof(mensagem));
+            close(fd_cli);
         }
 
+        
+
     }while(strcmp(comando, "close"));
+    close(fd_serv);
 }
