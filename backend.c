@@ -117,9 +117,8 @@ int main(int argc, char *argv[]){
         printf("[ERROR] Backend ja esta em execucao\n");
         return 0;
     }
-    res = mkfifo("/home/ricardo/partilha/SO/SERV", 0666);
-    if(res != 0){
-        printf("[ERROR] Ao criar o pipe %d\n", res);
+    if(mkfifo(PIPE_FRONT_BACK, 0666) != 0){
+        printf("[ERROR] Ao criar o pipe\n");
         return 0;
     }
     int fd_serv = open(PIPE_FRONT_BACK, O_RDWR);
@@ -140,12 +139,15 @@ int main(int argc, char *argv[]){
 
     comandos();
     do{
-        printf("Introduza um comando: ");
+        fflush(stdout);
+        printf("\nIntroduza um comando: ");
         fflush(stdout);
 
         FD_ZERO(&fontes);
         FD_SET(0, &fontes);
         FD_SET(fd_serv, &fontes);
+        t.tv_sec =20;
+        t.tv_usec=0;
         res = select(fd_serv + 1, &fontes, NULL, NULL, &t);
 
         if(res > 0 && FD_ISSET(0, &fontes)){        //VEIO DO TECLADO
@@ -215,19 +217,22 @@ int main(int argc, char *argv[]){
             }
         }else if(res > 0 && FD_ISSET(fd_serv, &fontes)){        //VEIO DO PIPE DO SERVIDOR
             res = read(fd_serv, &aux, sizeof(aux));
+            printf("User : %s", aux.username);
             if (isUserValid(aux.username, aux.password) == 1 && numUsers < MAXUSERS){
                 adicionaUsers(aux, listaUsers, numUsers); 
                 strcpy(mensagem, "ACEITE");
             }else {
                 strcpy(mensagem, "RECUSADO");
             }
-            fd_cli = open(aux.pipe_name, O_RDWR);
-            res = write(fd_cli, mensagem, sizeof(mensagem));
-            close(fd_cli);
+            printf("%s\n", mensagem);
+            fd_cli = open(aux.pipe_name, O_WRONLY);
+            res = write(fd_cli, &mensagem, sizeof(mensagem));
         }
 
         
 
     }while(strcmp(comando, "close"));
+    remove(PIPE_FRONT_BACK);
     close(fd_serv);
+    unlink(PIPE_FRONT_BACK);
 }

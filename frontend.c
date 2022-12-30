@@ -35,16 +35,11 @@ int login(user utilizador){
     fd_serv = open(PIPE_FRONT_BACK, O_WRONLY);
     res = write(fd_serv, &utilizador, sizeof(utilizador));
 
-    sprintf(utilizador.pipe_name, PIPE_BACK_FRONT, getpid());
-    if(mkfifo(utilizador.pipe_name, 0600) == -1){
-        printf("[ERROR] Ao criar o pipe\n");
-        return 0;
-    }
-    fd_cli = open(utilizador.pipe_name,O_RDWR);
-
-    res = read(fd_cli, resposta, sizeof(resposta));
+    res = read(fd_cli, &resposta, sizeof(resposta));
+    printf("%s\n", resposta);
     if(strcmp(resposta, "ACEITE") == 0)
         return 1;
+    printf("Recusado\n");
     return 0;
 }
 
@@ -57,10 +52,10 @@ int main(int argc, char *argv[]){
     struct timeval t;
     
     
-    /*if(access(PIPE_FRONT_BACK, F_OK) != 0){
+    if(access(PIPE_FRONT_BACK, F_OK) != 0){
         printf("[ERROR] Nao existe backend em execucao\n");
         return 0;
-    }*/
+    }
 
     if(argc != 3){
         printf("Insira username e password\n");
@@ -69,6 +64,13 @@ int main(int argc, char *argv[]){
     strcpy(utilizador.username, argv[1]);
     strcpy(utilizador.password, argv[2]);
     printf("\n\n *** Bem Vindo %s ***\n\n", utilizador.username);
+
+    sprintf(utilizador.pipe_name, PIPE_BACK_FRONT, getpid());
+    if(mkfifo(utilizador.pipe_name, 0600) == -1){
+        printf("[ERROR] Ao criar o pipe\n");
+        return 0;
+    }
+    fd_cli = open(utilizador.pipe_name,O_RDWR);
 
     if( login(utilizador) == 0)
         return 0;
@@ -215,6 +217,8 @@ int main(int argc, char *argv[]){
         }
 
     }while(strcmp(comando, "exit"));
+    remove(utilizador.pipe_name);
     close(fd_cli);
+    unlink(utilizador.pipe_name);
     close(fd_serv);
 }
