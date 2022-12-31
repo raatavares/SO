@@ -19,27 +19,80 @@ void comandos(){
 
 }
 
+void* LaunchPromotores(void * dados){
 
+    prom* data = (prom *)dados;
 
-void promotores(){
-    char frase[TAM];
-    
-    int pl[2], estado;
-    pipe(pl);
-    int res=fork();
-    if(res == 0){
-        close(1);//fechar acesso ao monitor
-        dup(pl[1]);//duplicar p[1] na primeira posição do pipe
-        close(pl[0]);//fechar extremidade de leitura do pipe
-        close(pl[1]);//fechar extremidade de escrita do pipe
-        execl("black_friday", "black_friday", NULL);
+    int FD[2];
+    int id;
+    int pid;
+    pipe(FD);
+    char promotor1[MAX_COMAND], aux[MAX_COMAND]="";
+    char path[MAX_COMAND];
+
+    id=fork();
+
+    if(id==0)
+    {
+        close(1);
+        dup(FD[1]);
+        close(FD[1]);
+        close(FD[0]);
+
+        sprintf(path,"Promotores/&s",name);
+        execl(path,name,NULL);
+
+        printf("Promotor nao lançado\n");
+        exit(1);
     }
-    close(pl[1]);
-    read(pl[0], &frase, TAM);
-    close(pl[0]);
-    wait(&estado);
-    printf("Promocao: %s\n", frase);
+    else
+    {
+        pid=id;
+        close(FD[1]);
+    }
+
+    while(1)
+    {
+        read(FD[0],&promotor1,sizeof(promotor1));
+
+        if(strcmp(promotor1,aux)!=0)
+        {
+            printf("\nPromotor: %s",promotor1);
+            strcpy(aux,promotor1);
+            strcpy(promotor1,"");
+        }
+    }
+
+    close(FD[0]);
+    }
+
+    pthread_exit(NULL);
 }
+
+
+void Promotores(backend* data){
+
+    char prom[20];
+    int error,i=0;
+    pthread_t promotorThread[MAX_PROGPROMOTORES];
+
+    FILE *filedesc;
+    filedesc = fopen("filestxt/promoter.txt","r");
+
+    while (fscanf(filedesc,"%s %d",prom,&error) == 1 && i < 10 ){
+
+        strcpy( promotor[i].name,prom);
+
+        if(pthread_create(&promotorThread[i],NULL,&LaunchPromotor,&promotor[i]) != 0) return;
+        ++i;
+    }
+    i=0;
+    while (i<10){
+        pd[i] = promotor[i].pid;
+        ++i;
+    }
+}
+
 
 int atualizaLista(int numUsers, user user[], char nome[]) {
     int nlidos, saldo;
