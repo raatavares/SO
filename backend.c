@@ -77,7 +77,7 @@ void Promotores(backend* data){
     pthread_t promotorThread[MAXPROMOTERS];
 
     FILE *filedesc;
-    filedesc = fopen("filestxt/promoter.txt","r");
+    filedesc = fopen("promoter.txt","r");
 
     while (fscanf(filedesc,"%s %d",prom,&error) == 1 && i < 10 ){
 
