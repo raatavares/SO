@@ -51,4 +51,9 @@ typedef struct promocoes{
 
 typedef struct promotores{
     char name[TAM];
+    int pid;
 }promotor;
+
+typedef struct {
+    promotor promotor[MAXPROMOTERS];
+}backend;

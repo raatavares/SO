@@ -21,39 +21,39 @@ void comandos(){
 
 void* LaunchPromotores(void * dados){
 
-    prom* data = (prom *)dados;
+    promotor* data = (promotor *)dados;
 
-    int FD[2];
-    int id;
-    int pid;
-    pipe(FD);
-    char promotor1[MAX_COMAND], aux[MAX_COMAND]="";
-    char path[MAX_COMAND];
+    pthread_t t[20];
+    int pl[2];
+    pipe(pl);
+    char promotor1[20], aux[20]="";
+    char path[100];
+    int id = -1;
 
-    id=fork();
+            id=fork();
 
-    if(id==0)
-    {
-        close(1);
-        dup(FD[1]);
-        close(FD[1]);
-        close(FD[0]);
+    if(id == 0){
+        close(1);//fechar acesso ao monitor
+        dup(pl[1]);//duplicar p[1] na primeira posição do pipe
+        close(pl[0]);//fechar extremidade de leitura do pipe
+        close(pl[1]);//fechar extremidade de escrita do pipe
 
-        sprintf(path,"Promotores/&s",name);
-        execl(path,name,NULL);
+        sprintf(path,"Promotores/%s",data->name);
+
+        execl(path, data->name, NULL);
 
         printf("Promotor nao lançado\n");
         exit(1);
     }
     else
     {
-        pid=id;
-        close(FD[1]);
-    }
+        data->pid=id;
+        printf("\n\n->%d\n\n",data->pid);
+        close(pl[1]);
 
     while(1)
     {
-        read(FD[0],&promotor1,sizeof(promotor1));
+        read(pl[0],&promotor1,sizeof(promotor1));
 
         if(strcmp(promotor1,aux)!=0)
         {
@@ -63,33 +63,57 @@ void* LaunchPromotores(void * dados){
         }
     }
 
-    close(FD[0]);
+    close(pl[0]);
     }
 
     pthread_exit(NULL);
 }
 
-
 void Promotores(backend* data){
 
+    int pd[MAXPROMOTERS];
     char prom[20];
     int error,i=0;
-    pthread_t promotorThread[MAX_PROGPROMOTORES];
+    pthread_t promotorThread[MAXPROMOTERS];
 
     FILE *filedesc;
     filedesc = fopen("filestxt/promoter.txt","r");
 
     while (fscanf(filedesc,"%s %d",prom,&error) == 1 && i < 10 ){
 
-        strcpy( promotor[i].name,prom);
+        strcpy( data->promotor[i].name,prom);
 
-        if(pthread_create(&promotorThread[i],NULL,&LaunchPromotor,&promotor[i]) != 0) return;
+        if(pthread_create(&promotorThread[i],NULL,&LaunchPromotores,&data->promotor[i]) != 0) return;
         ++i;
     }
+
     i=0;
     while (i<10){
-        pd[i] = promotor[i].pid;
+        pd[i] = data->promotor[i].pid;
         ++i;
+    }
+}
+
+void CancelPromotor (backend* dados, char* nome_prom){
+    backend * data=(backend *)dados;
+    int i=0;
+
+    do {
+        printf("\n\n");
+        if(strcmp(data->promotor[i].name,nome_prom) ==0 )
+        {
+
+            union sigval val;
+            sigqueue(data->promotor[i].pid, SIGUSR1 , val);
+
+            strcpy(data->promotor[i].name,"--");
+        }
+        ++i;
+    } while (i<10);
+
+    for (int j=0; j<10 ; j++)
+    {
+        printf("--[%s(%d(]",data->promotor[j].name,j);
     }
 }
 
@@ -164,6 +188,7 @@ int main(int argc, char *argv[]){
     int numUsers = 0, numItens = 0, numProm = 0, res, fd_cli;
     fd_set fontes;
     struct timeval t;
+    backend data;
 
     
     if(access(PIPE_FRONT_BACK, F_OK) == 0){
@@ -266,7 +291,7 @@ int main(int argc, char *argv[]){
                 numUsers = le_users(numUsers, listaUsers);
             }
             if(strcmp(comando, "promotor\0") == 0){
-                promotores();
+                Promotores(&data);
             }
         }else if(res > 0 && FD_ISSET(fd_serv, &fontes)){        //VEIO DO PIPE DO SERVIDOR
             res = read(fd_serv, &aux, sizeof(aux));
