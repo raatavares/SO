@@ -6,7 +6,7 @@ frontend:
 
 backend:
 	gcc -c backend.c
-	gcc header.h -o backend backend.o users_lib.o
+	gcc header.h -o backend backend.o users_lib.o -lpthread
 
 clean:
 	rm frontend

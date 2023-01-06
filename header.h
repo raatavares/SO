@@ -20,6 +20,7 @@ int nmaxalive = 60;
 #define MAXUSERS 20
 #define MAXPROMOTERS 10
 #define MAXITEMS 30
+#define MAXPROMOCOES 50
 #define TAM 50
 
 #define PIPE_FRONT_BACK "SERV"
@@ -54,6 +55,12 @@ typedef struct promotores{
     int pid;
 }promotor;
 
-typedef struct {
-    promotor promotor[MAXPROMOTERS];
+typedef struct gestao{
+    promotor listaProm[MAXPROMOTERS];
+    int seconds;
+    int numItens;
+    int numPromocao;
+    item items[MAXITEMS];
+    promocao promocoes[MAXPROMOCOES];
+    user listaUsers[MAXUSERS];
 }backend;

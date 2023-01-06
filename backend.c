@@ -1,6 +1,8 @@
 #include"header.h"
 #include"users_lib.h"
+#include <pthread.h>
 
+backend info;
 
 
 void comandos(){
@@ -17,6 +19,22 @@ void comandos(){
     printf("leitura - Teste -> Leitura de Itens \n");
     printf("promotor - Teste -> Conexão com promotores \n");
 
+}
+
+void *increment_seconds(void *arg){
+    
+    while(1){
+        sleep(1);
+        info.seconds++;
+        for(int i = 0; i < info.numItens; i++){
+            info.items[i].duration--;
+        }
+        for(int i = 0; i < info.numPromocao; i++){
+            info.promocoes[i].duration--;
+        }
+        //verificaExpiracao();
+    }
+    return NULL;
 }
 
 void* LaunchPromotores(void * dados){
@@ -69,6 +87,23 @@ void* LaunchPromotores(void * dados){
     pthread_exit(NULL);
 }
 
+void verificaExpiracao(){
+    for(int i = 0; i < info.numItens; i++){
+        if(info.items[i].duration == 0){
+            if(strcmp(info.items[i].user_buyer , "") == 0)
+                printf("<Tempo expirou> Item %d - %s foi vendido: (categoria)%s (preco atual)%d (comprador)%s \n", info.items[i].IDitem, info.items[i].name, info.items[i].category, info.items[i].current_value, info.items[i].user_buyer);
+            else
+                printf("<Tempo expirou> Item: %d nao foi vendido!\n", info.items[i].IDitem);
+        }
+    }
+    for(int i = 0; i < info.numPromocao; i++){
+        if(info.promocoes[i].duration == 0){
+                printf("<Tempo expirou> Promocao de %d na categoria %s expirou! \n", info.promocoes[i].descont, info.promocoes[i].category);
+        }
+    }
+    return;
+}
+
 void Promotores(backend* data){
 
     int pd[MAXPROMOTERS];
@@ -81,15 +116,15 @@ void Promotores(backend* data){
 
     while (fscanf(filedesc,"%s %d",prom,&error) == 1 && i < 10 ){
 
-        strcpy( data->promotor[i].name,prom);
+        strcpy( data->listaProm[i].name,prom);
 
-        if(pthread_create(&promotorThread[i],NULL,&LaunchPromotores,&data->promotor[i]) != 0) return;
+        if(pthread_create(&promotorThread[i],NULL,&LaunchPromotores,&data->listaProm[i]) != 0) return;
         ++i;
     }
 
     i=0;
     while (i<10){
-        pd[i] = data->promotor[i].pid;
+        pd[i] = data->listaProm[i].pid;
         ++i;
     }
 }
@@ -100,20 +135,20 @@ void CancelPromotor (backend* dados, char* nome_prom){
 
     do {
         printf("\n\n");
-        if(strcmp(data->promotor[i].name,nome_prom) ==0 )
+        if(strcmp(data->listaProm[i].name,nome_prom) ==0 )
         {
 
             union sigval val;
-            sigqueue(data->promotor[i].pid, SIGUSR1 , val);
+            sigqueue(data->listaProm[i].pid, SIGUSR1 , val);
 
-            strcpy(data->promotor[i].name,"--");
+            strcpy(data->listaProm[i].name,"--");
         }
         ++i;
     } while (i<10);
 
     for (int j=0; j<10 ; j++)
     {
-        printf("--[%s(%d(]",data->promotor[j].name,j);
+        printf("--[%s(%d(]",data->listaProm[j].name,j);
     }
 }
 
@@ -185,10 +220,12 @@ void adicionaUsers(user aux, user users[], int numUsers){
 
 int main(int argc, char *argv[]){
     char comando[50], arg[50], mensagem[50];
-    int numUsers = 0, numItens = 0, numProm = 0, res, fd_cli;
+    int numUsers = 0, numProm = 0, res, fd_cli;
     fd_set fontes;
     struct timeval t;
     backend data;
+    pthread_t thread;
+
 
     
     if(access(PIPE_FRONT_BACK, F_OK) == 0){
@@ -200,12 +237,13 @@ int main(int argc, char *argv[]){
         return 0;
     }
     int fd_serv = open(PIPE_FRONT_BACK, O_RDWR);
-    
+    int seconds = 0;
+    int numItens = 0;
+    int numPromocao = 0;
     
 
-    user listaUsers[MAXUSERS], aux;
-    item items[MAXITEMS];
-    promotor listaProm[MAXPROMOTERS];
+    user aux;
+    
 
     if (getenv("FPROMOTERS") != NULL)
         strcpy(fileFP, getenv("FPROMOTERS"));
@@ -214,6 +252,8 @@ int main(int argc, char *argv[]){
     if (getenv("FITEMS") != NULL)
         strcpy(fileFI, getenv("FITEMS"));
 
+    //cria thread
+    pthread_create(&thread, NULL, increment_seconds, NULL);
 
     comandos();
     do{
@@ -238,14 +278,14 @@ int main(int argc, char *argv[]){
                 if( numUsers == 0)
                     printf("Nao existem users!\n");
                 for(int i = 0; i < numUsers ; i++){
-                    printf("Users: %s \n", listaUsers[i].username);
+                    printf("Users: %s \n", info.listaUsers[i].username);
                 }
             }
             if(strcmp(comando, "list\0") == 0){
-                if( numItens == 0)
+                if( info.numItens == 0)
                     printf("Nao existem itens!\n");
-                for(int i = 0; i < numItens ; i++){
-                    printf("Item %d - %s: (categoria)%s (preco atual)%d (preco base)%d (vendedor)%s (comprador)%s \n", items[i].IDitem, items[i].name, items[i].category, items[i].current_value, items[i].value, items[i].user_sell, items[i].user_buyer);
+                for(int i = 0; i < info.numItens ; i++){
+                    printf("Item %d - %s: (categoria)%s (preco atual)%d (preco base)%d (vendedor)%s (comprador)%s \n", info.items[i].IDitem, info.items[i].name, info.items[i].category, info.items[i].current_value, info.items[i].value, info.items[i].user_sell, info.items[i].user_buyer);
                 }
             }
             if(strncmp(comando, "kick", 4) == 0){
@@ -260,7 +300,7 @@ int main(int argc, char *argv[]){
                 if( numProm == 0)
                     printf("Nao existem promocoes!\n");
                 for(int i = 0; i < numProm ; i++){
-                    printf("Promotor: %s \n", listaProm[i].name);
+                    printf("Promotor: %s \n", info.listaProm[i].name);
                 }
             }
             if(strcmp(comando, "reprom\0") == 0){
@@ -281,14 +321,14 @@ int main(int argc, char *argv[]){
                 if(strcmp(comando, "atualiza\0") != 0){ 
                     strcpy(arg, strtok(comando, " "));
                     strcpy(arg, strtok(NULL, " "));
-                    if((numUsers = atualizaLista(numUsers, listaUsers, arg)) != -1)
+                    if((numUsers = atualizaLista(numUsers, info.listaUsers, arg)) != -1)
                         printf("%s foi atualizado\n", arg);
                 }else
                     printf("E necessario definir o nome a ser atualizado \n");
             }
             if(strcmp(comando, "leitura\0") == 0){
-                numItens = le_itens(numItens, items);
-                numUsers = le_users(numUsers, listaUsers);
+                info.numItens = le_itens(info.numItens, info.items);
+                numUsers = le_users(numUsers, info.listaUsers);
             }
             if(strcmp(comando, "promotor\0") == 0){
                 Promotores(&data);
@@ -297,7 +337,7 @@ int main(int argc, char *argv[]){
             res = read(fd_serv, &aux, sizeof(aux));
             printf("User : %s", aux.username);
             if (isUserValid(aux.username, aux.password) == 1 && numUsers < MAXUSERS){
-                adicionaUsers(aux, listaUsers, numUsers); 
+                adicionaUsers(aux, info.listaUsers, numUsers); 
                 strcpy(mensagem, "ACEITE");
             }else {
                 strcpy(mensagem, "RECUSADO");
