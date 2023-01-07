@@ -33,13 +33,14 @@ int login(user utilizador){
     int res;
     char resposta[50];
     fd_serv = open(PIPE_FRONT_BACK, O_WRONLY);
+    int value = FLAG_NEW_USER;
+    res = write(fd_serv, &value, sizeof(int));
     res = write(fd_serv, &utilizador, sizeof(utilizador));
-
+    
     res = read(fd_cli, &resposta, sizeof(resposta));
     printf("%s\n", resposta);
     if(strcmp(resposta, "ACEITE") == 0)
         return 1;
-    printf("Recusado\n");
     return 0;
 }
 
@@ -63,7 +64,6 @@ int main(int argc, char *argv[]){
     }
     strcpy(utilizador.username, argv[1]);
     strcpy(utilizador.password, argv[2]);
-    printf("\n\n *** Bem Vindo %s ***\n\n", utilizador.username);
 
     sprintf(utilizador.pipe_name, PIPE_BACK_FRONT, getpid());
     if(mkfifo(utilizador.pipe_name, 0600) == -1){
@@ -74,6 +74,7 @@ int main(int argc, char *argv[]){
 
     if( login(utilizador) == 0)
         return 0;
+    printf("\n\n *** Bem Vindo %s ***\n\n", utilizador.username);
 
     if (getenv("HEARTBEAT") != NULL)
         nmaxalive = atoi(getenv("HEARTBEAT"));
@@ -94,14 +95,24 @@ int main(int argc, char *argv[]){
             fgets(comando,50,stdin);
             comando[strlen(comando) - 1] = '\0';
             if(strncmp(comando, "sell", 4) == 0){
-                if(contaWords(comando) == 6){
+                if(contaWords(comando) == 6 && numItens < MAXITEMS){
                     strcpy(arg, strtok(comando, " "));
                     strcpy(arg, strtok(NULL, " "));
+                    strcpy(items[numItens].name, arg);
                     strcpy(arg, strtok(NULL, " "));
+                    strcpy(items[numItens].category, arg);
                     strcpy(arg, strtok(NULL, " "));
+                    items[numItens].value = atoi(arg);
                     strcpy(arg, strtok(NULL, " "));
+                    items[numItens].current_value = atoi(arg);
                     strcpy(arg, strtok(NULL, " "));
+                    items[numItens].duration = atoi(arg);
+                    strcpy(items[numItens].user_buyer, "");
+                    strcpy(items[numItens].user_sell, utilizador.username);
+                    //items[numItens].duration = id;       *FALTA ID*
+                    numItens++;
                     printf("\n*Item colocado a leilao\n");
+                    //Comunicacao com backend
                 }
                 else{
                     printf("E necessario definir o nome, categoria, preco_base, preco_compre_ja, duracao \n"); // sell <name> <category> <value> <current_value> <duration>
@@ -184,13 +195,35 @@ int main(int argc, char *argv[]){
             }
             if(strcmp(comando, "time\0") == 0){
                 printf("comando valido \n"); // time
+                //Comunicacao com backend
             }
             if(strncmp(comando, "buy", 3) == 0){
                 if(contaWords(comando)==3){
                     strcpy(arg, strtok(comando, " "));
                     strcpy(arg, strtok(NULL, " "));
+                    int id = atoi(arg);
                     strcpy(arg, strtok(NULL, " "));
-                    printf("\n*Item licitado %s\n", arg);
+                    int valor = atoi(arg);
+                    if(utilizador.saldo > valor){
+                        for(int i = 0; i<numItens; i++){
+                            if(items[i].IDitem == id){
+                                if(items[i].current_value < valor){
+                                    printf("Licitou valor para item %d \n", id);
+                                    items[i].current_value = valor;
+                                    //comunicacao com backend
+                                }
+                                else{
+                                    printf("Impossivel licitar porque o valor atual e de %d! \n", items[i].current_value);
+                                }
+                            }
+                                
+                        }
+                        
+
+
+
+                    }
+                    printf("Impossivel licitar!\n");
                 }
                 else{
                     printf("E necessario definir o id e o valor \n"); // buy <IDitem> <value>
@@ -203,7 +236,9 @@ int main(int argc, char *argv[]){
                 if(strcmp(comando, "add\0") != 0){
                     strcpy(arg, strtok(comando, " "));
                     strcpy(arg, strtok(NULL, " "));
-                    printf("\n*Carregado: %s€ \n", arg);
+                    utilizador.saldo = utilizador.saldo + atoi(arg);
+                    printf("\n*Saldo atual: %d€ \n", utilizador.saldo);
+                    //comunicacao com backend
                 }
                 else{
                     printf("E necessario definir o valor que deseja carregar\n"); // add <value>
@@ -211,6 +246,7 @@ int main(int argc, char *argv[]){
             }
             if(strcmp(comando, "exit\0") == 0){
                 printf("\n*A sair...\n"); //exit
+                //comunicacao com backend
             }
         }else if(res > 0 && FD_ISSET(fd_cli, &fontes)){        //VEIO DO PIPE DO SERVIDOR
             printf("recebeu do pipe\n");

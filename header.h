@@ -26,6 +26,12 @@ int nmaxalive = 60;
 #define PIPE_FRONT_BACK "SERV"
 #define PIPE_BACK_FRONT "CLI%d"
 
+#define FLAG_NEW_USER 0
+#define FLAG_NEW_ITEM 1
+#define FLAG_TIME 2
+#define FLAG_LICITACAO 3
+#define FLAG_CARREGAMENTO 4
+
 typedef struct utilizador{
     char username[TAM];
     char password[TAM];
@@ -57,10 +63,10 @@ typedef struct promotores{
 
 typedef struct gestao{
     promotor listaProm[MAXPROMOTERS];
-    int seconds;
-    int numItens;
-    int numPromocao;
     item items[MAXITEMS];
     promocao promocoes[MAXPROMOCOES];
     user listaUsers[MAXUSERS];
+    int seconds;
+    int numItens, numPromocao, numUsers , numProm; 
+    int FLAG_TERMINOU;
 }backend;

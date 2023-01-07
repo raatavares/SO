@@ -23,7 +23,7 @@ void comandos(){
 
 void *increment_seconds(void *arg){
     
-    while(1){
+    while(info.FLAG_TERMINOU == 0){
         sleep(1);
         info.seconds++;
         for(int i = 0; i < info.numItens; i++){
@@ -220,7 +220,7 @@ void adicionaUsers(user aux, user users[], int numUsers){
 
 int main(int argc, char *argv[]){
     char comando[50], arg[50], mensagem[50];
-    int numUsers = 0, numProm = 0, res, fd_cli;
+    int res, fd_cli;
     fd_set fontes;
     struct timeval t;
     backend data;
@@ -237,9 +237,12 @@ int main(int argc, char *argv[]){
         return 0;
     }
     int fd_serv = open(PIPE_FRONT_BACK, O_RDWR);
-    int seconds = 0;
-    int numItens = 0;
-    int numPromocao = 0;
+    info.seconds = 0;
+    info.numItens = 0;
+    info.numPromocao = 0;
+    info.numProm = 0;
+    info.numUsers = 0;
+    info.FLAG_TERMINOU = 0;
     
 
     user aux;
@@ -275,9 +278,9 @@ int main(int argc, char *argv[]){
                 comandos();
             }
             if(strcmp(comando, "users\0") == 0){
-                if( numUsers == 0)
+                if( info.numUsers == 0)
                     printf("Nao existem users!\n");
-                for(int i = 0; i < numUsers ; i++){
+                for(int i = 0; i < info.numUsers ; i++){
                     printf("Users: %s \n", info.listaUsers[i].username);
                 }
             }
@@ -297,9 +300,9 @@ int main(int argc, char *argv[]){
                 printf("E necessario definir o user a ser expulso \n");
             }
             if(strcmp(comando, "prom\0") == 0){
-                if( numProm == 0)
+                if( info.numProm == 0)
                     printf("Nao existem promocoes!\n");
-                for(int i = 0; i < numProm ; i++){
+                for(int i = 0; i < info.numProm ; i++){
                     printf("Promotor: %s \n", info.listaProm[i].name);
                 }
             }
@@ -316,35 +319,48 @@ int main(int argc, char *argv[]){
             }
             if(strcmp(comando, "close\0") == 0){
                 printf("\n A sair...\n");
+                info.FLAG_TERMINOU = 1;
             }
             if(strncmp(comando, "atualiza", 8) == 0){
                 if(strcmp(comando, "atualiza\0") != 0){ 
                     strcpy(arg, strtok(comando, " "));
                     strcpy(arg, strtok(NULL, " "));
-                    if((numUsers = atualizaLista(numUsers, info.listaUsers, arg)) != -1)
+                    if((info.numUsers = atualizaLista(info.numUsers, info.listaUsers, arg)) != -1)
                         printf("%s foi atualizado\n", arg);
                 }else
                     printf("E necessario definir o nome a ser atualizado \n");
             }
             if(strcmp(comando, "leitura\0") == 0){
                 info.numItens = le_itens(info.numItens, info.items);
-                numUsers = le_users(numUsers, info.listaUsers);
+                info.numUsers = le_users(info.numUsers, info.listaUsers);
             }
             if(strcmp(comando, "promotor\0") == 0){
                 Promotores(&data);
             }
         }else if(res > 0 && FD_ISSET(fd_serv, &fontes)){        //VEIO DO PIPE DO SERVIDOR
-            res = read(fd_serv, &aux, sizeof(aux));
-            printf("User : %s", aux.username);
-            if (isUserValid(aux.username, aux.password) == 1 && numUsers < MAXUSERS){
-                adicionaUsers(aux, info.listaUsers, numUsers); 
-                strcpy(mensagem, "ACEITE");
-            }else {
-                strcpy(mensagem, "RECUSADO");
-            }
-            printf("%s\n", mensagem);
-            fd_cli = open(aux.pipe_name, O_WRONLY);
-            res = write(fd_cli, &mensagem, sizeof(mensagem));
+            int flag;
+            res = read(fd_serv, &flag, sizeof(flag));
+            if (flag == FLAG_NEW_USER){
+                res = read(fd_serv, &aux, sizeof(aux));
+                fd_cli = open(aux.pipe_name, O_WRONLY);
+                printf("\nNew User : %s  -  ", aux.username);
+                if (isUserValid(aux.username, aux.password) == 1 && info.numUsers < MAXUSERS){
+                    adicionaUsers(aux, info.listaUsers, info.numUsers); 
+                    strcpy(mensagem, "ACEITE");
+                }else {
+                    strcpy(mensagem, "RECUSADO");
+                }
+                printf("%s\n", mensagem);
+                res = write(fd_cli, &mensagem, sizeof(mensagem));
+            }/*else if(flag == FLAG_NEW_ITEM){
+
+            }else if(flag == FLAG_TIME){
+
+            }else if(flag == FLAG_LICITACAO){
+
+            }else if(flag == FLAG_CARREGAMENTO){
+
+            } */           
         }
 
         
