@@ -216,8 +216,6 @@ void adicionaUsers(user aux){
 }
 
 void adicionaItem(item auxItem){
-    auxItem.IDitem = info.id;
-    info.id++;
     printf("\nNew Item : [%d] %s", auxItem.IDitem, auxItem.name);
     strcpy(info.items[info.numItens].category, auxItem.category);
     info.items[info.numItens].current_value = auxItem.current_value;
@@ -392,13 +390,22 @@ int main(int argc, char *argv[]){
                 close(fd_cli);
             }else if(flag == FLAG_NEW_ITEM){
                 res = read(fd_serv, &auxItem, sizeof(auxItem));
+                auxItem.IDitem = info.id;
+                info.id++;
                 adicionaItem(auxItem);
                 
                 for (int i = 0; i < info.numUsers; i++){
-                    fd_cli = open(info.listaUsers[i].pipe_name, O_WRONLY);
-                    res = write(fd_cli, &info.items[info.numItens], sizeof(info.items[info.numItens]));
-                    close(fd_cli);    
-                }       // todos os clientes tem de estar preparados para receber
+                    if(strcmp(info.listaUsers[i].username,auxItem.user_sell) == 0){
+                        fd_cli = open(info.listaUsers[i].pipe_name, O_WRONLY);
+                        res = write(fd_cli, &auxItem.IDitem, sizeof(auxItem.IDitem));
+                        close(fd_cli);  
+                    }
+                    else{ // todos os clientes tem de estar preparados para receber
+                        fd_cli = open(info.listaUsers[i].pipe_name, O_WRONLY);
+                        res = write(fd_cli, &auxItem, sizeof(auxItem));
+                        close(fd_cli);  
+                    }
+                }       
                 info.numItens++;
             }else if(flag == FLAG_TIME){
                 res = read(fd_serv, &auxUser, sizeof(auxUser));
@@ -411,9 +418,11 @@ int main(int argc, char *argv[]){
                 }
             }else if(flag == FLAG_LICITACAO){
                 res = read(fd_serv, &auxItem, sizeof(auxItem));
+                printf("\nUser %s licitou %d€ para [%d]\n", auxItem.user_buyer, auxItem.current_value, auxItem.IDitem);
                 for(int i = 0; i<info.numItens; i++){
                     if(auxItem.IDitem == info.items[i].IDitem){
                         info.items[i].current_value = auxItem.current_value;
+                        strcpy(info.items[i].user_buyer, auxItem.user_buyer);
                         for(int j = 0; j < info.numUsers; j++){ 
                             fd_cli = open(info.listaUsers[j].pipe_name, O_WRONLY);
                             res = write(fd_cli, &auxItem, sizeof(auxItem));

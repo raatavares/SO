@@ -90,10 +90,10 @@ int main(int argc, char *argv[]){
 
         FD_ZERO(&fontes);
         FD_SET(0, &fontes);
-        FD_SET(fd_cli, &fontes);
+     //   FD_SET(fd_cli, &fontes);
         t.tv_sec =20;
         t.tv_usec=0;
-        res = select(fd_cli + 1, &fontes, NULL, NULL, &t);
+        res = select(0 + 1, &fontes, NULL, NULL, &t);
 
         if(res > 0 && FD_ISSET(0, &fontes)){        //VEIO DO TECLADO
             valido = 0;
@@ -223,6 +223,7 @@ int main(int argc, char *argv[]){
                                 if(items[i].current_value < valor){
                                     printf("Licitou valor para item %d \n", id);
                                     items[i].current_value = valor;
+                                    strcpy(items[i].user_buyer, utilizador.username);
                                     int value = FLAG_LICITACAO;
                                     write(fd_serv, &value, sizeof(int));
                                     write(fd_serv, &items[i], sizeof(items[i]));
@@ -234,7 +235,8 @@ int main(int argc, char *argv[]){
                             }
                         }
                     }
-                    printf("Impossivel licitar!\n");
+                    else
+                        printf("Impossivel licitar!\n");
                 }
                 else{
                     printf("E necessario definir o id e o valor \n"); // buy <IDitem> <value>
