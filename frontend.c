@@ -31,17 +31,18 @@ int contaWords(char str[]){
 
 int login(user utilizador){
     int res;
-    char resposta[50];
+    int saldo;
     fd_serv = open(PIPE_FRONT_BACK, O_WRONLY);
     int value = FLAG_NEW_USER;
     res = write(fd_serv, &value, sizeof(int));
     res = write(fd_serv, &utilizador, sizeof(utilizador));
     
-    res = read(fd_cli, &resposta, sizeof(resposta));
-    printf("%s\n", resposta);
-    if(strcmp(resposta, "ACEITE") == 0)
-        return 1;
-    return 0;
+    res = read(fd_cli, &saldo, sizeof(saldo));
+    if(saldo != -1){
+        return saldo;
+
+    }
+    return -1;
 }
 
 int main(int argc, char *argv[]){
@@ -72,7 +73,8 @@ int main(int argc, char *argv[]){
     }
     fd_cli = open(utilizador.pipe_name,O_RDWR);
 
-    if( login(utilizador) == 0)
+    utilizador.saldo = login(utilizador);
+    if(utilizador.saldo == -1)
         return 0;
     printf("\n\n *** Bem Vindo %s ***\n\n", utilizador.username);
 
@@ -82,12 +84,15 @@ int main(int argc, char *argv[]){
 
     comandos();
     do{
+        fflush(stdout);
         printf("Introduza um comando: ");
         fflush(stdout);
 
         FD_ZERO(&fontes);
         FD_SET(0, &fontes);
         FD_SET(fd_cli, &fontes);
+        t.tv_sec =20;
+        t.tv_usec=0;
         res = select(fd_cli + 1, &fontes, NULL, NULL, &t);
 
         if(res > 0 && FD_ISSET(0, &fontes)){        //VEIO DO TECLADO
@@ -109,10 +114,14 @@ int main(int argc, char *argv[]){
                     items[numItens].duration = atoi(arg);
                     strcpy(items[numItens].user_buyer, "");
                     strcpy(items[numItens].user_sell, utilizador.username);
-                    //items[numItens].duration = id;       *FALTA ID*
-                    numItens++;
                     printf("\n*Item colocado a leilao\n");
-                    //Comunicacao com backend
+                    
+                    int value = FLAG_NEW_ITEM;
+                    res = write(fd_serv, &value, sizeof(int));
+                    res = write(fd_serv, &items[numItens], sizeof(items[numItens]));
+                    res = read(fd_serv, &items[numItens], sizeof(items[numItens]));
+
+                    numItens++;
                 }
                 else{
                     printf("E necessario definir o nome, categoria, preco_base, preco_compre_ja, duracao \n"); // sell <name> <category> <value> <current_value> <duration>
@@ -194,8 +203,12 @@ int main(int argc, char *argv[]){
                 }
             }
             if(strcmp(comando, "time\0") == 0){
-                printf("comando valido \n"); // time
-                //Comunicacao com backend
+                int value = FLAG_TIME;
+                write(fd_serv, &value, sizeof(int));
+                write(fd_serv, &utilizador, sizeof(utilizador));
+                int segundos;
+                res = read(fd_cli, &segundos, sizeof(segundos));
+                printf("Hora: %d \n", segundos); 
             }
             if(strncmp(comando, "buy", 3) == 0){
                 if(contaWords(comando)==3){
@@ -210,18 +223,16 @@ int main(int argc, char *argv[]){
                                 if(items[i].current_value < valor){
                                     printf("Licitou valor para item %d \n", id);
                                     items[i].current_value = valor;
-                                    //comunicacao com backend
+                                    int value = FLAG_LICITACAO;
+                                    write(fd_serv, &value, sizeof(int));
+                                    write(fd_serv, &items[i], sizeof(items[i]));
+                                    read(fd_cli, &items[i], sizeof(items[i]));
                                 }
                                 else{
                                     printf("Impossivel licitar porque o valor atual e de %d! \n", items[i].current_value);
                                 }
                             }
-                                
                         }
-                        
-
-
-
                     }
                     printf("Impossivel licitar!\n");
                 }
@@ -238,7 +249,9 @@ int main(int argc, char *argv[]){
                     strcpy(arg, strtok(NULL, " "));
                     utilizador.saldo = utilizador.saldo + atoi(arg);
                     printf("\n*Saldo atual: %d€ \n", utilizador.saldo);
-                    //comunicacao com backend
+                    int value = FLAG_CARREGAMENTO;
+                    write(fd_serv, &value, sizeof(int));
+                    write(fd_serv, &utilizador, sizeof(utilizador));
                 }
                 else{
                     printf("E necessario definir o valor que deseja carregar\n"); // add <value>
@@ -246,7 +259,9 @@ int main(int argc, char *argv[]){
             }
             if(strcmp(comando, "exit\0") == 0){
                 printf("\n*A sair...\n"); //exit
-                //comunicacao com backend
+                int value = FLAG_EXIT_USER;
+                res = write(fd_serv, &value, sizeof(int));
+                res = write(fd_serv, &utilizador, sizeof(utilizador));
             }
         }else if(res > 0 && FD_ISSET(fd_cli, &fontes)){        //VEIO DO PIPE DO SERVIDOR
             printf("recebeu do pipe\n");

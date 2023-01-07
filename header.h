@@ -31,6 +31,7 @@ int nmaxalive = 60;
 #define FLAG_TIME 2
 #define FLAG_LICITACAO 3
 #define FLAG_CARREGAMENTO 4
+#define FLAG_EXIT_USER 5
 
 typedef struct utilizador{
     char username[TAM];
@@ -67,6 +68,6 @@ typedef struct gestao{
     promocao promocoes[MAXPROMOCOES];
     user listaUsers[MAXUSERS];
     int seconds;
-    int numItens, numPromocao, numUsers , numProm; 
+    int numItens, numPromocao, numUsers , numProm, id; 
     int FLAG_TERMINOU;
 }backend;

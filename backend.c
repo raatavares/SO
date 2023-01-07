@@ -15,7 +15,6 @@ void comandos(){
     printf("reprom - Atualizar promotores \n");
     printf("cancel - Cancelar um Promotor \n");
     printf("close - Encerrar um Programa \n");
-    printf("atualiza - Teste -> Atualizar utilizadores \n");
     printf("leitura - Teste -> Leitura de Itens \n");
     printf("promotor - Teste -> Conexão com promotores \n");
 
@@ -153,20 +152,18 @@ void CancelPromotor (backend* dados, char* nome_prom){
 }
 
 
-int atualizaLista(int numUsers, user user[], char nome[]) {
+int atualizaSaldo(char nome[], int saldoNovo) {
     int nlidos, saldo;
-    nlidos = loadUsersFile(FUSERS);
-    numUsers = numUsers + nlidos;
     if(getUserBalance(nome) == -1){
-        printf("Nao existe ninguem com esse nome!\n");
-        return -1;
+        return 0;
 
     }
-
-    saldo = getUserBalance(nome);
-    updateUserBalance(nome, saldo-1);
-    saveUsersFile(FUSERS);
-    return numUsers;
+    for (int i = 0; i < info.numUsers; i++){
+        if(strcmp(info.listaUsers[i].username, nome) == 0){
+            updateUserBalance(nome, saldoNovo);
+        }
+    }
+    return 1;
 }
 
 int le_itens(int numItens, item items[]) {
@@ -209,13 +206,63 @@ int le_users(int numUsers, user users[]) {
     return numUsers;
 }
 
-void adicionaUsers(user aux, user users[], int numUsers){
+void adicionaUsers(user aux){
     printf("Novo utilizador: %s\n", aux.username);
-    strcpy(users[numUsers].password,aux.password);
-    strcpy(users[numUsers].username,aux.username);
-    users[numUsers].saldo=aux.saldo;
-    strcpy(users[numUsers].pipe_name,aux.pipe_name);
-    numUsers++;
+    strcpy(info.listaUsers[info.numUsers].password,aux.password);
+    strcpy(info.listaUsers[info.numUsers].username,aux.username);
+    info.listaUsers[info.numUsers].saldo=aux.saldo;
+    strcpy(info.listaUsers[info.numUsers].pipe_name,aux.pipe_name);
+    info.numUsers++;
+}
+
+void adicionaItem(item auxItem){
+    auxItem.IDitem = info.id;
+    info.id++;
+    printf("\nNew Item : [%d] %s", auxItem.IDitem, auxItem.name);
+    strcpy(info.items[info.numItens].category, auxItem.category);
+    info.items[info.numItens].current_value = auxItem.current_value;
+    info.items[info.numItens].duration = auxItem.duration;
+    info.items[info.numItens].IDitem = auxItem.IDitem;
+    strcpy(info.items[info.numItens].name, auxItem.name);
+    strcpy(info.items[info.numItens].user_buyer, auxItem.user_buyer);
+    strcpy(info.items[info.numItens].user_sell, auxItem.user_sell);
+    info.items[info.numItens].value = auxItem.value;
+}
+
+
+void apagarUser(user auxUser){
+    for(int i = 0; i<info.numUsers; i++){
+        if(strcmp(info.listaUsers[i].username, auxUser.username) == 0){
+            printf("User : %s foi encerrado\n", info.listaUsers[i].username);
+            for(int j=i+1; j<info.numUsers; i++){
+                strcpy(info.listaUsers[j-1].password, info.listaUsers[j].password);
+                strcpy(info.listaUsers[j-1].pipe_name, info.listaUsers[j].pipe_name);
+                info.listaUsers[j-1].saldo = info.listaUsers[j].saldo;
+                strcpy(info.listaUsers[j-1].username, info.listaUsers[j].username);
+            }
+            info.numUsers--;
+            return;
+        }
+    }
+}
+
+void apagarItems(item auxItem){
+    for(int i = 0; i<info.numItens; i++){
+        if(info.items[i].IDitem == auxItem.IDitem){
+            for(int j=i+1; j<info.numItens; i++){
+                strcpy(info.items[j-1].category, info.items[j].category);
+                info.items[j-1].current_value = info.items[j].current_value;
+                info.items[j-1].duration = info.items[j].duration;
+                info.items[j-1].IDitem = info.items[j].IDitem;
+                strcpy(info.items[j-1].name, info.items[j].name);
+                strcpy(info.items[j-1].user_buyer, info.items[j].user_buyer);
+                strcpy(info.items[j-1].user_sell, info.items[j].user_sell);
+                info.items[j-1].value = info.items[j].value;
+            }
+            info.numItens--;
+            return;
+        }
+    }
 }
 
 int main(int argc, char *argv[]){
@@ -225,8 +272,6 @@ int main(int argc, char *argv[]){
     struct timeval t;
     backend data;
     pthread_t thread;
-
-
     
     if(access(PIPE_FRONT_BACK, F_OK) == 0){
         printf("[ERROR] Backend ja esta em execucao\n");
@@ -243,9 +288,10 @@ int main(int argc, char *argv[]){
     info.numProm = 0;
     info.numUsers = 0;
     info.FLAG_TERMINOU = 0;
-    
+    info.id = 0;
 
-    user aux;
+    user auxUser;
+    item auxItem;
     
 
     if (getenv("FPROMOTERS") != NULL)
@@ -257,6 +303,7 @@ int main(int argc, char *argv[]){
 
     //cria thread
     pthread_create(&thread, NULL, increment_seconds, NULL);
+    loadUsersFile(FUSERS);
 
     comandos();
     do{
@@ -321,15 +368,6 @@ int main(int argc, char *argv[]){
                 printf("\n A sair...\n");
                 info.FLAG_TERMINOU = 1;
             }
-            if(strncmp(comando, "atualiza", 8) == 0){
-                if(strcmp(comando, "atualiza\0") != 0){ 
-                    strcpy(arg, strtok(comando, " "));
-                    strcpy(arg, strtok(NULL, " "));
-                    if((info.numUsers = atualizaLista(info.numUsers, info.listaUsers, arg)) != -1)
-                        printf("%s foi atualizado\n", arg);
-                }else
-                    printf("E necessario definir o nome a ser atualizado \n");
-            }
             if(strcmp(comando, "leitura\0") == 0){
                 info.numItens = le_itens(info.numItens, info.items);
                 info.numUsers = le_users(info.numUsers, info.listaUsers);
@@ -341,31 +379,67 @@ int main(int argc, char *argv[]){
             int flag;
             res = read(fd_serv, &flag, sizeof(flag));
             if (flag == FLAG_NEW_USER){
-                res = read(fd_serv, &aux, sizeof(aux));
-                fd_cli = open(aux.pipe_name, O_WRONLY);
-                printf("\nNew User : %s  -  ", aux.username);
-                if (isUserValid(aux.username, aux.password) == 1 && info.numUsers < MAXUSERS){
-                    adicionaUsers(aux, info.listaUsers, info.numUsers); 
-                    strcpy(mensagem, "ACEITE");
+                res = read(fd_serv, &auxUser, sizeof(auxUser));
+                fd_cli = open(auxUser.pipe_name, O_WRONLY);
+                if (isUserValid(auxUser.username, auxUser.password) == 1 && info.numUsers < MAXUSERS){
+                    printf("\nNew User : %s  -  ", auxUser.username);
+                    adicionaUsers(auxUser); 
+                    auxUser.saldo = getUserBalance(auxUser.username);
                 }else {
-                    strcpy(mensagem, "RECUSADO");
+                    auxUser.saldo = -1;
                 }
-                printf("%s\n", mensagem);
-                res = write(fd_cli, &mensagem, sizeof(mensagem));
-            }/*else if(flag == FLAG_NEW_ITEM){
-
+                res = write(fd_cli, &auxUser.saldo, sizeof(auxUser.saldo));
+                close(fd_cli);
+            }else if(flag == FLAG_NEW_ITEM){
+                res = read(fd_serv, &auxItem, sizeof(auxItem));
+                adicionaItem(auxItem);
+                
+                for (int i = 0; i < info.numUsers; i++){
+                    fd_cli = open(info.listaUsers[i].pipe_name, O_WRONLY);
+                    res = write(fd_cli, &info.items[info.numItens], sizeof(info.items[info.numItens]));
+                    close(fd_cli);    
+                }       // todos os clientes tem de estar preparados para receber
+                info.numItens++;
             }else if(flag == FLAG_TIME){
-
+                res = read(fd_serv, &auxUser, sizeof(auxUser));
+                for (int i = 0; i < info.numUsers; i++){
+                    if(strcmp(info.listaUsers[i].username, auxUser.username) == 0){
+                        fd_cli = open(info.listaUsers[i].pipe_name, O_WRONLY);
+                        res = write(fd_cli, &info.seconds, sizeof(info.seconds));
+                        close(fd_cli);    
+                    }
+                }
             }else if(flag == FLAG_LICITACAO){
-
+                res = read(fd_serv, &auxItem, sizeof(auxItem));
+                for(int i = 0; i<info.numItens; i++){
+                    if(auxItem.IDitem == info.items[i].IDitem){
+                        info.items[i].current_value = auxItem.current_value;
+                        for(int j = 0; j < info.numUsers; j++){ 
+                            fd_cli = open(info.listaUsers[j].pipe_name, O_WRONLY);
+                            res = write(fd_cli, &auxItem, sizeof(auxItem));
+                            close(fd_cli);  
+                        }
+                    }
+                }                // todos os clientes tem de estar preparados para receber
             }else if(flag == FLAG_CARREGAMENTO){
-
-            } */           
+                res = read(fd_serv, &auxUser, sizeof(auxUser));
+                for (int i = 0; i < info.numUsers; i++){
+                    if(strcmp(info.listaUsers[i].username, auxUser.username) == 0){
+                            info.listaUsers[i].saldo = auxUser.saldo;
+                            atualizaSaldo(auxUser.username, auxUser.saldo);
+                    }
+                }
+            }else if(flag == FLAG_EXIT_USER){
+                res = read(fd_serv, &auxUser, sizeof(auxUser));
+                printf("User %s\n", auxUser.username);
+                apagarUser(auxUser);
+            }            
         }
 
         
 
     }while(strcmp(comando, "close"));
+    saveUsersFile(FUSERS);
     remove(PIPE_FRONT_BACK);
     close(fd_serv);
     unlink(PIPE_FRONT_BACK);
