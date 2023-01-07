@@ -36,55 +36,7 @@ void *increment_seconds(void *arg){
     return NULL;
 }
 
-void* LaunchPromotores(void * dados){
 
-    promotor* data = (promotor *)dados;
-
-    pthread_t t[20];
-    int pl[2];
-    pipe(pl);
-    char promotor1[20], aux[20]="";
-    char path[100];
-    int id = -1;
-
-            id=fork();
-
-    if(id == 0){
-        close(1);//fechar acesso ao monitor
-        dup(pl[1]);//duplicar p[1] na primeira posição do pipe
-        close(pl[0]);//fechar extremidade de leitura do pipe
-        close(pl[1]);//fechar extremidade de escrita do pipe
-
-        sprintf(path,"Promotores/%s",data->name);
-
-        execl(path, data->name, NULL);
-
-        printf("Promotor nao lançado\n");
-        exit(1);
-    }
-    else
-    {
-        data->pid=id;
-        printf("\n\n->%d\n\n",data->pid);
-        close(pl[1]);
-
-    while(1)
-    {
-        read(pl[0],&promotor1,sizeof(promotor1));
-
-        if(strcmp(promotor1,aux)!=0)
-        {
-            printf("\nPromotor: %s",promotor1);
-            strcpy(aux,promotor1);
-            strcpy(promotor1,"");
-        }
-    }
-
-    close(pl[0]);
-    }
-
-    pthread_exit(NULL);
-}
 
 void verificaExpiracao(){
     for(int i = 0; i < info.numItens; i++){
@@ -102,6 +54,57 @@ void verificaExpiracao(){
     }
     return;
 }
+
+void* LaunchPromotores(void * dados){
+
+    promotor* data = (promotor *)dados;
+
+    pthread_t t[20];
+    int pl[2];
+    pipe(pl);
+    char promotor1[20], aux[20]="";
+    char path[100];
+    int id;
+
+    id=fork();
+
+    if(id == 0){
+        close(1);//fechar acesso ao monitor
+        dup(pl[1]);//duplicar p[1] na primeira posição do pipe
+        close(pl[0]);//fechar extremidade de leitura do pipe
+        close(pl[1]);//fechar extremidade de escrita do pipe
+
+        sprintf(path,"Promotores/%s",data->name);
+
+        execl(path, data->name, NULL);
+
+        perror("");
+        exit(1);
+    }
+    else
+    {
+        data->pid=id;
+        printf("\n\n->%d\n\n",data->pid);
+        close(pl[1]);
+
+        while(1)
+        {
+            read(pl[0],&promotor1,sizeof(promotor1));
+
+            if(strcmp(promotor1,aux)!=0)
+            {
+                printf("Promotor: %s\n",promotor1);
+                strcpy(aux,promotor1);
+                strcpy(promotor1,"");
+            }
+        }
+
+        close(pl[0]);
+    }
+
+    pthread_exit(NULL);
+}
+
 
 void Promotores(backend* data){
 
