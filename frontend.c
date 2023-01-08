@@ -29,6 +29,11 @@ int contaWords(char str[]){
     return nword;
 }
 
+void trataSig(int i){
+    printf("\nA Encerrar...\n");
+    exit(EXIT_FAILURE);
+}
+
 int login(user utilizador){
     int res;
     int saldo;
@@ -83,6 +88,10 @@ int main(int argc, char *argv[]){
     if (getenv("HEARTBEAT") != NULL)
         nmaxalive = atoi(getenv("HEARTBEAT"));
 
+    if(signal(SIGUSR1, trataSig) == SIG_ERR){
+        printf("\n<ERRO> Nao foi possivel configurar o sinal SIGUSR1\n");
+        return 0;
+    }
 
     comandos();
     do{
@@ -93,7 +102,7 @@ int main(int argc, char *argv[]){
         FD_ZERO(&fontes);
         FD_SET(0, &fontes);
         FD_SET(fd_cli, &fontes);
-        t.tv_sec =20;
+        t.tv_sec =60;
         t.tv_usec=0;
         res = select(fd_cli + 1, &fontes, NULL, NULL, &t);
 
