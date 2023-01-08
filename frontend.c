@@ -40,7 +40,6 @@ int login(user utilizador){
     res = read(fd_cli, &saldo, sizeof(saldo));
     if(saldo != -1){
         return saldo;
-
     }
     return -1;
 }
@@ -48,8 +47,9 @@ int login(user utilizador){
 int main(int argc, char *argv[]){
     char comando[50], arg[50];
     user utilizador;
-    int numItens = 0, res, valido = 0;
-    item items[MAXITEMS];
+    int numItens = 0,numProm = 0, res, valido = 0;
+    item auxItem, items[MAXITEMS];
+    promocao auxProm, promocoes[MAXPROMOCOES];
     fd_set fontes;
     struct timeval t;
     
@@ -74,8 +74,10 @@ int main(int argc, char *argv[]){
     fd_cli = open(utilizador.pipe_name,O_RDWR);
 
     utilizador.saldo = login(utilizador);
-    if(utilizador.saldo == -1)
+    if(utilizador.saldo == -1){
+        printf("User Recusado!\n");
         return 0;
+    }
     printf("\n\n *** Bem Vindo %s ***\n\n", utilizador.username);
 
     if (getenv("HEARTBEAT") != NULL)
@@ -90,38 +92,35 @@ int main(int argc, char *argv[]){
 
         FD_ZERO(&fontes);
         FD_SET(0, &fontes);
-     //   FD_SET(fd_cli, &fontes);
+        FD_SET(fd_cli, &fontes);
         t.tv_sec =20;
         t.tv_usec=0;
-        res = select(0 + 1, &fontes, NULL, NULL, &t);
+        res = select(fd_cli + 1, &fontes, NULL, NULL, &t);
 
         if(res > 0 && FD_ISSET(0, &fontes)){        //VEIO DO TECLADO
             valido = 0;
             fgets(comando,50,stdin);
             comando[strlen(comando) - 1] = '\0';
             if(strncmp(comando, "sell", 4) == 0){
-                if(contaWords(comando) == 6 && numItens < MAXITEMS){
+                if(contaWords(comando) == 6){
                     strcpy(arg, strtok(comando, " "));
                     strcpy(arg, strtok(NULL, " "));
-                    strcpy(items[numItens].name, arg);
+                    strcpy(auxItem.name, arg);
                     strcpy(arg, strtok(NULL, " "));
-                    strcpy(items[numItens].category, arg);
+                    strcpy(auxItem.category, arg);
                     strcpy(arg, strtok(NULL, " "));
-                    items[numItens].value = atoi(arg);
+                    auxItem.value = atoi(arg);
                     strcpy(arg, strtok(NULL, " "));
-                    items[numItens].current_value = atoi(arg);
+                    auxItem.current_value = atoi(arg);
                     strcpy(arg, strtok(NULL, " "));
-                    items[numItens].duration = atoi(arg);
-                    strcpy(items[numItens].user_buyer, "");
-                    strcpy(items[numItens].user_sell, utilizador.username);
+                    auxItem.duration = atoi(arg);
+                    strcpy(auxItem.user_buyer, "");
+                    strcpy(auxItem.user_sell, utilizador.username);
                     printf("\n*Item colocado a leilao\n");
                     
                     int value = FLAG_NEW_ITEM;
                     res = write(fd_serv, &value, sizeof(int));
-                    res = write(fd_serv, &items[numItens], sizeof(items[numItens]));
-                    res = read(fd_serv, &items[numItens], sizeof(items[numItens]));
-
-                    numItens++;
+                    res = write(fd_serv, &auxItem, sizeof(auxItem));
                 }
                 else{
                     printf("E necessario definir o nome, categoria, preco_base, preco_compre_ja, duracao \n"); // sell <name> <category> <value> <current_value> <duration>
@@ -266,7 +265,75 @@ int main(int argc, char *argv[]){
                 res = write(fd_serv, &utilizador, sizeof(utilizador));
             }
         }else if(res > 0 && FD_ISSET(fd_cli, &fontes)){        //VEIO DO PIPE DO SERVIDOR
-            printf("recebeu do pipe\n");
+            int flag;
+            res = read(fd_cli, &flag, sizeof(int));
+            if(flag == FLAG_PROM){
+                res = read(fd_cli, &auxProm, sizeof(auxProm));
+                if(auxProm.new == true){
+                    if(numProm < MAXPROMOCOES){
+                        strcpy(promocoes[numProm].category, auxProm.category);
+                        promocoes[numProm].descont = auxProm.descont;
+                        promocoes[numProm].duration = auxProm.duration;
+                        printf("\nPromocao de %d na categoria %s iniciada\n", promocoes[numProm].descont, promocoes[numProm].category);
+                        numProm++;
+                    }
+                }else{
+                    for(int i = 0; i < numProm; i++){
+                        if(promocoes[i].descont == auxProm.descont && (strcmp(promocoes[i].category, auxProm.category) == 0)){
+                            printf("\nPromocao de %d na categoria %s terminou\n", promocoes[i].descont, promocoes[i].category);
+                            for(int j=i+1; j<numProm; j++){
+                                strcpy(promocoes[j-1].category, promocoes[j].category);
+                                promocoes[j-1].descont = promocoes[j].descont;
+                                promocoes[j-1].duration = promocoes[j].duration;
+                            }
+                            numProm++;
+                        }
+                    }
+                }
+            }else if(flag == FLAG_ITEM){
+                res = read(fd_cli, &auxItem, sizeof(auxItem));
+                if(auxItem.new == true){
+                    if(numItens < MAXITEMS){
+                        strcpy(items[numItens].category, auxItem.category);
+                        items[numItens].current_value = auxItem.current_value;
+                        items[numItens].duration = auxItem.duration;
+                        items[numItens].IDitem = auxItem.IDitem;
+                        strcpy(items[numItens].name, auxItem.name);
+                        strcpy(items[numItens].user_buyer, auxItem.user_buyer);
+                        strcpy(items[numItens].user_sell, auxItem.user_sell);
+                        items[numItens].value = auxItem.value;
+                        printf("Item %d - %s: (categoria)%s (preco atual)%d (preco base)%d foi adicionado\n", items[numItens].IDitem, items[numItens].name, items[numItens].category, items[numItens].current_value, items[numItens].value);     
+                        numItens++;
+                    }
+                }else{
+                    for(int i = 0; i < numItens; i++){
+                        if(items[i].IDitem == auxItem.IDitem){
+                            printf("Item %d - %s: (categoria)%s (preco atual)%d foi removido", items[numItens].IDitem, items[numItens].name, items[numItens].category, items[numItens].current_value);
+                            if(auxItem.duration == 0 && (strcmp(auxItem.user_buyer,"") == 0)) 
+                                printf(" - nao vendido\n");  
+                            else if(auxItem.duration == 0 && (strcmp(auxItem.user_buyer,"") != 0)){
+                                printf(" - vendido a %s\n", auxItem.user_buyer);   
+                                if(strcmp(auxItem.user_buyer, utilizador.username) == 0){
+                                    utilizador.saldo = utilizador.saldo-auxItem.current_value;
+                                    printf("\nSaldo atual: %d\n", utilizador.saldo);
+                                }
+                            }
+                            for(int j=i+1; j<numItens; i++){
+                                strcpy(items[j-1].category, items[j].category);
+                                items[j-1].current_value = items[j].current_value;
+                                items[j-1].duration = items[j].duration;
+                                items[j-1].IDitem = items[j].IDitem;
+                                strcpy(items[j-1].name, items[j].name);
+                                strcpy(items[j-1].user_buyer, items[j].user_buyer);
+                                strcpy(items[j-1].user_sell, items[j].user_sell);
+                                items[j-1].value = items[j].value;
+                            }
+                            numItens--;
+                        }
+                    }
+                }
+            }
+
         }
 
     }while(strcmp(comando, "exit"));

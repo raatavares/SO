@@ -17,209 +17,6 @@ void comandos(){
     printf("close - Encerrar um Programa \n");
     printf("leitura - Teste -> Leitura de Itens \n");
     printf("promotor - Teste -> Conexão com promotores \n");
-
-}
-
-void *increment_seconds(void *arg){
-    
-    while(info.FLAG_TERMINOU == 0){
-        sleep(1);
-        info.seconds++;
-        for(int i = 0; i < info.numItens; i++){
-            info.items[i].duration--;
-        }
-        for(int i = 0; i < info.numPromocao; i++){
-            info.promocoes[i].duration--;
-        }
-        //verificaExpiracao();
-    }
-    return NULL;
-}
-
-
-
-void verificaExpiracao(){
-    for(int i = 0; i < info.numItens; i++){
-        if(info.items[i].duration == 0){
-            if(strcmp(info.items[i].user_buyer , "") == 0)
-                printf("<Tempo expirou> Item %d - %s foi vendido: (categoria)%s (preco atual)%d (comprador)%s \n", info.items[i].IDitem, info.items[i].name, info.items[i].category, info.items[i].current_value, info.items[i].user_buyer);
-            else
-                printf("<Tempo expirou> Item: %d nao foi vendido!\n", info.items[i].IDitem);
-        }
-    }
-    for(int i = 0; i < info.numPromocao; i++){
-        if(info.promocoes[i].duration == 0){
-                printf("<Tempo expirou> Promocao de %d na categoria %s expirou! \n", info.promocoes[i].descont, info.promocoes[i].category);
-        }
-    }
-    return;
-}
-
-
-void* LaunchPromotores(void * dados){
-
-    promotor* data = (promotor *)dados;
-
-    pthread_t t[20];
-    int pl[2];
-    pipe(pl);
-    char promotor1[20], aux[20]="";
-    promocao auxProm;
-    char path[100];
-    int id;
-
-
-    id=fork();
-
-    if(id == 0){
-        close(1);//fechar acesso ao monitor
-        dup(pl[1]);//duplicar p[1] na primeira posição do pipe
-        close(pl[0]);//fechar extremidade de leitura do pipe
-        close(pl[1]);//fechar extremidade de escrita do pipe
-
-
-        sprintf(path,"Promotores/%s",data->name);
-
-        if ( info.numPromocao < MAXPROMOCOES )
-        {
-        strcpy( info.promocoes[info.numPromocao].category, auxProm.category);
-        info.promocoes[info.numPromocao].descont= auxProm.descont;
-        info.promocoes[info.numPromocao].duration= auxProm.duration;
-
-        info.numPromocao++;
-        };
-
-        execl(path, data->name, NULL);
-
-        perror("");
-        exit(1);
-    }
-    else
-    {
-        data->pid=id;
-        printf("\n\n->%d\n\n",data->pid);
-        close(pl[1]);
-
-        while(1)
-        {
-            read(pl[0],&promotor1,sizeof(promotor1));
-
-            if(strcmp(promotor1,aux)!=0)
-            {
-                printf("Promotor: %s\n",promotor1);
-                strcpy(aux,promotor1);
-                strcpy(promotor1,"");
-            }
-        }
-
-        close(pl[0]);
-    }
-
-    pthread_exit(NULL);
-}
-
-
-void Promotores(backend* data){
-
-    int pd[MAXPROMOTERS];
-    char prom[20];
-    int error,i=0;
-    pthread_t promotorThread[MAXPROMOTERS];
-
-    FILE *filedesc;
-    filedesc = fopen("promoter.txt","r");
-
-    while (fscanf(filedesc,"%s %d",prom,&error) == 1 && i < 10 ){
-
-        strcpy( data->listaProm[i].name,prom);
-
-        if(pthread_create(&promotorThread[i],NULL,&LaunchPromotores,&data->listaProm[i]) != 0) return;
-        ++i;
-    }
-
-    i=0;
-    while (i<10){
-        pd[i] = data->listaProm[i].pid;
-        ++i;
-    }
-}
-
-void CancelPromotor (backend* dados, char* nome_prom){
-    backend * data=(backend *)dados;
-    int i=0;
-
-    do {
-        printf("\n\n");
-        if(strcmp(data->listaProm[i].name,nome_prom) ==0 )
-        {
-
-            union sigval val;
-            sigqueue(data->listaProm[i].pid, SIGUSR1 , val);
-
-            strcpy(data->listaProm[i].name,"--");
-        }
-        ++i;
-    } while (i<10);
-
-    for (int j=0; j<10 ; j++)
-    {
-        printf("--[%s(%d(]",data->listaProm[j].name,j);
-    }
-}
-
-
-int atualizaSaldo(char nome[], int saldoNovo) {
-    int nlidos, saldo;
-    if(getUserBalance(nome) == -1){
-        return 0;
-
-    }
-    for (int i = 0; i < info.numUsers; i++){
-        if(strcmp(info.listaUsers[i].username, nome) == 0){
-            updateUserBalance(nome, saldoNovo);
-        }
-    }
-    return 1;
-}
-
-int le_itens(int numItens, item items[]) {
-    if(numItens == MAXITEMS){
-        printf("Nao e possivel ler mais itens\n");
-        return numItens;
-    }
-    
-    FILE *file;
-    file = fopen(fileFI, "rt");
-    if(file == NULL){
-        printf("\nNao foi possivel abrir o ficheiro dos itens\n");
-        return numItens;
-    }
-    while(numItens < MAXITEMS && fscanf(file, "%d %s %s %d %d %d %s %s\n", &items[numItens].IDitem, items[numItens].name, items[numItens].category, &items[numItens].current_value, &items[numItens].value, &items[numItens].duration, items[numItens].user_sell, items[numItens].user_buyer)!=EOF){
-        printf("Lido item: %s\n", items[numItens].name);
-        numItens++;
-    }
-    fclose(file);
-    return numItens;
-}
-
-int le_users(int numUsers, user users[]) {
-    if(numUsers == MAXUSERS){
-        printf("Nao e possivel ler mais users\n");
-        return numUsers;
-    }
-    
-    FILE *file;
-    file = fopen(fileFU, "rt");
-    if(file == NULL){
-        printf("\nNao foi possivel abrir o ficheiro dos users\n");
-        return numUsers;
-    }
-    while(numUsers < MAXUSERS && fscanf(file, "%s %s %d\n", users[numUsers].username, users[numUsers].password, &users[numUsers].saldo)!=EOF){
-        printf("Lido user: %s\n", users[numUsers].username);
-        numUsers++;
-    }
-    fclose(file);
-    return numUsers;
 }
 
 void adicionaUsers(user aux){
@@ -278,6 +75,247 @@ void apagarItems(item auxItem){
         }
     }
 }
+
+void apagarPromocao(promocao auxPromocao){
+    for(int i = 0; i<info.numPromocao; i++){
+        if(info.promocoes[i].descont == auxPromocao.descont && (strcmp(info.promocoes[i].category, auxPromocao.category) == 0)){
+            for(int j=i+1; j<info.numPromocao; i++){
+                strcpy(info.promocoes[j-1].category, info.promocoes[j].category);
+                info.promocoes[j-1].descont = info.promocoes[j].descont;
+                info.promocoes[j-1].duration = info.promocoes[j].duration;
+            }
+            info.numPromocao--;
+            return;
+        }
+    }
+}
+
+void verificaExpiracao(){
+    int res, fd_cli;
+
+    for(int i = 0; i < info.numItens; i++){
+        if(info.items[i].duration == 0){
+            if(strcmp(info.items[i].user_buyer , "") == 0)
+                printf("<Tempo expirou> Item %d - %s foi vendido: (categoria)%s (preco atual)%d (comprador)%s \n", info.items[i].IDitem, info.items[i].name, info.items[i].category, info.items[i].current_value, info.items[i].user_buyer);
+            else
+                printf("<Tempo expirou> Item: %d nao foi vendido!\n", info.items[i].IDitem);
+            info.items[i].new = false;
+            for (int i = 0; i < info.numUsers; i++){
+                fd_cli = open(info.listaUsers[i].pipe_name, O_WRONLY);
+                int value = FLAG_ITEM;
+                res = write(fd_cli, &value, sizeof(int));
+                res = write(fd_cli, &info.items[i], sizeof(item));
+                close(fd_cli);  
+            }  
+            apagarItems(info.items[i]);
+        }
+    }
+    for(int i = 0; i < info.numPromocao; i++){
+        if(info.promocoes[i].duration == 0){
+            printf("<Tempo expirou> Promocao de %d na categoria %s expirou! \n", info.promocoes[i].descont, info.promocoes[i].category);
+            info.promocoes[i].new = false;
+            for (int i = 0; i < info.numUsers; i++){
+                fd_cli = open(info.listaUsers[i].pipe_name, O_WRONLY);
+                int value = FLAG_PROM;
+                res = write(fd_cli, &value, sizeof(int));
+                res = write(fd_cli, &info.promocoes[i], sizeof(promocao));
+                close(fd_cli);  
+            } 
+            apagarPromocao(info.promocoes[i]);
+        } 
+    }
+    return;
+}
+
+void *increment_seconds(void *arg){
+    
+    while(info.FLAG_TERMINOU == 0){
+        sleep(1);
+        info.seconds++;
+        for(int i = 0; i < info.numItens; i++){
+            info.items[i].duration--;
+        }
+        for(int i = 0; i < info.numPromocao; i++){
+            info.promocoes[i].duration--;
+        }
+        verificaExpiracao();
+    }
+    return NULL;
+}
+
+void* LaunchPromotores(void * dados){
+
+    promotor* data = (promotor *)dados;
+    int res, fd_cli;
+    pthread_t t[20];
+    int pl[2];
+    pipe(pl);
+    char promotor1[20], aux[20]="";
+    promocao auxProm;
+    char path[100];
+    int id;
+
+
+    id=fork();
+
+    if(id == 0){
+        close(1);//fechar acesso ao monitor
+        dup(pl[1]);//duplicar p[1] na primeira posição do pipe
+        close(pl[0]);//fechar extremidade de leitura do pipe
+        close(pl[1]);//fechar extremidade de escrita do pipe
+
+
+        sprintf(path,"Promotores/%s",data->name);
+
+        if (info.numPromocao < MAXPROMOCOES ){
+            strcpy( info.promocoes[info.numPromocao].category, auxProm.category);
+            info.promocoes[info.numPromocao].descont= auxProm.descont;
+            info.promocoes[info.numPromocao].duration= auxProm.duration;
+            auxProm.new = true;
+
+            for (int i = 0; i < info.numUsers; i++){
+                fd_cli = open(info.listaUsers[i].pipe_name, O_WRONLY);
+                int value = FLAG_ITEM;
+                res = write(fd_cli, &value, sizeof(int));
+                res = write(fd_cli, &auxProm, sizeof(auxProm));
+                close(fd_cli);  
+            }      
+
+            info.numPromocao++;
+        };
+
+        execl(path, data->name, NULL);
+
+        perror("");
+        exit(1);
+    }
+    else
+    {
+        data->pid=id;
+        //printf("\n\n->%d\n\n",data->pid);
+        close(pl[1]);
+
+        while(1)
+        {
+            read(pl[0],&promotor1,sizeof(promotor1));
+
+            if(strcmp(promotor1,aux)!=0)
+            {
+                printf("Promotor: %s\n",promotor1);
+                strcpy(aux,promotor1);
+                strcpy(promotor1,"");
+            }
+        }
+
+        close(pl[0]);
+    }
+
+    pthread_exit(NULL);
+}
+
+
+void Promotores(){
+
+    int pd[MAXPROMOTERS];
+    char prom[20];
+    int error,i=0;
+    pthread_t promotorThread[MAXPROMOTERS];
+
+    FILE *filedesc;
+    filedesc = fopen("promoter.txt","r");
+
+    while (fscanf(filedesc,"%s %d",prom,&error) == 1 && i < 10 ){
+
+        strcpy( info.listaProm[i].name,prom);
+
+        if(pthread_create(&promotorThread[i],NULL,&LaunchPromotores,&info.listaProm[i]) != 0) return;
+        ++i;
+    }
+
+    i=0;
+    while (i<10){
+        pd[i] = info.listaProm[i].pid;
+        ++i;
+    }
+}
+
+void CancelPromotor (char* nome_prom){
+    int i=0;
+
+    do {
+        printf("\n\n");
+        if(strcmp(info.listaProm[i].name,nome_prom) ==0 )
+        {
+
+            union sigval val;
+            sigqueue(info.listaProm[i].pid, SIGUSR1 , val);
+
+            strcpy(info.listaProm[i].name,"--");
+        }
+        ++i;
+    } while (i<10);
+
+    for (int j=0; j<10 ; j++)
+    {
+        printf("--[%s(%d(]",info.listaProm[j].name,j);
+    }
+}
+
+
+int atualizaSaldo(char nome[], int saldoNovo) {
+    int nlidos, saldo;
+    if(getUserBalance(nome) == -1){
+        return 0;
+
+    }
+    for (int i = 0; i < info.numUsers; i++){
+        if(strcmp(info.listaUsers[i].username, nome) == 0){
+            updateUserBalance(nome, saldoNovo);
+        }
+    }
+    return 1;
+}
+
+int le_itens(int numItens, item items[]) {
+    if(numItens == MAXITEMS){
+        printf("Nao e possivel ler mais itens\n");
+        return numItens;
+    }
+    
+    FILE *file;
+    file = fopen(fileFI, "rt");
+    if(file == NULL){
+        printf("\nNao foi possivel abrir o ficheiro dos itens\n");
+        return numItens;
+    }
+    while(numItens < MAXITEMS && fscanf(file, "%d %s %s %d %d %d %s %s\n", &items[numItens].IDitem, items[numItens].name, items[numItens].category, &items[numItens].current_value, &items[numItens].value, &items[numItens].duration, items[numItens].user_sell, items[numItens].user_buyer)!=EOF){
+        printf("Lido item: %s\n", items[numItens].name);
+        numItens++;
+    }
+    fclose(file);
+    return numItens;
+}
+
+int le_users(int numUsers, user users[]) {
+    if(numUsers == MAXUSERS){
+        printf("Nao e possivel ler mais users\n");
+        return numUsers;
+    }
+    
+    FILE *file;
+    file = fopen(fileFU, "rt");
+    if(file == NULL){
+        printf("\nNao foi possivel abrir o ficheiro dos users\n");
+        return numUsers;
+    }
+    while(numUsers < MAXUSERS && fscanf(file, "%s %s %d\n", users[numUsers].username, users[numUsers].password, &users[numUsers].saldo)!=EOF){
+        printf("Lido user: %s\n", users[numUsers].username);
+        numUsers++;
+    }
+    fclose(file);
+    return numUsers;
+}
+
 
 int main(int argc, char *argv[]){
     char comando[50], arg[50], mensagem[50];
@@ -408,19 +446,15 @@ int main(int argc, char *argv[]){
                 res = read(fd_serv, &auxItem, sizeof(auxItem));
                 auxItem.IDitem = info.id;
                 info.id++;
+                auxItem.new = true;
                 adicionaItem(auxItem);
                 
                 for (int i = 0; i < info.numUsers; i++){
-                    if(strcmp(info.listaUsers[i].username,auxItem.user_sell) == 0){
-                        fd_cli = open(info.listaUsers[i].pipe_name, O_WRONLY);
-                        res = write(fd_cli, &auxItem.IDitem, sizeof(auxItem.IDitem));
-                        close(fd_cli);  
-                    }
-                    else{ // todos os clientes tem de estar preparados para receber
-                        fd_cli = open(info.listaUsers[i].pipe_name, O_WRONLY);
-                        res = write(fd_cli, &auxItem, sizeof(auxItem));
-                        close(fd_cli);  
-                    }
+                    fd_cli = open(info.listaUsers[i].pipe_name, O_WRONLY);
+                    int value = FLAG_ITEM;
+                    res = write(fd_cli, &value, sizeof(int));
+                    res = write(fd_cli, &auxItem, sizeof(auxItem));
+                    close(fd_cli);  
                 }       
                 info.numItens++;
             }else if(flag == FLAG_TIME){
@@ -464,6 +498,9 @@ int main(int argc, char *argv[]){
         
 
     }while(strcmp(comando, "close"));
+    for(int i = 0; i < info.numProm; i++){
+        CancelPromotor(info.listaProm[i].name);
+    }
     saveUsersFile(FUSERS);
     remove(PIPE_FRONT_BACK);
     close(fd_serv);

@@ -7,6 +7,7 @@
 #include<sys/wait.h>
 #include<sys/types.h>
 #include<sys/stat.h>
+#include<stdbool.h>
 
 char fileFP[20]="promoter.txt";
 char fileFU[20]="user.txt";
@@ -32,6 +33,8 @@ int nmaxalive = 60;
 #define FLAG_LICITACAO 3
 #define FLAG_CARREGAMENTO 4
 #define FLAG_EXIT_USER 5
+#define FLAG_PROM 6
+#define FLAG_ITEM 7
 
 typedef struct utilizador{
     char username[TAM];
@@ -49,12 +52,14 @@ typedef struct items{
     int duration;
     char user_sell[TAM];
     char user_buyer[TAM];
+    bool new;
 }item;
 
 typedef struct promocoes{
     char category[TAM];
     int descont;
     int duration;
+    bool new;
 }promocao;
 
 typedef struct promotores{
