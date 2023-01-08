@@ -294,7 +294,8 @@ int main(int argc, char *argv[]){
                                 promocoes[j-1].descont = promocoes[j].descont;
                                 promocoes[j-1].duration = promocoes[j].duration;
                             }
-                            numProm++;
+                            numProm--;
+                            break;
                         }
                     }
                 }
@@ -325,7 +326,7 @@ int main(int argc, char *argv[]){
                 }else{
                     for(int i = 0; i < numItens; i++){
                         if(items[i].IDitem == auxItem.IDitem){
-                            printf("Item %d - %s: (categoria)%s (preco atual)%d foi removido", items[numItens].IDitem, items[numItens].name, items[numItens].category, items[numItens].current_value);
+                            printf("Item %d - %s: (categoria)%s (preco atual)%d foi removido", auxItem.IDitem, auxItem.name, auxItem.category, auxItem.current_value);
                             if(auxItem.duration == 0 && (strcmp(auxItem.user_buyer,"") == 0)) 
                                 printf(" - nao vendido\n");  
                             else if(auxItem.duration == 0 && (strcmp(auxItem.user_buyer,"") != 0)){
@@ -346,6 +347,7 @@ int main(int argc, char *argv[]){
                                 items[j-1].value = items[j].value;
                             }
                             numItens--;
+                            break;
                         }
                     }
                 }

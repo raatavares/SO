@@ -88,40 +88,75 @@ void apagarPromocao(promocao auxPromocao){
     }
 }
 
+void apagarItemsTerminados(){
+    for(int i = 0; i<info.numItens; i++){
+        if(info.items[i].duration == 0){
+            for(int j=i+1; j<info.numItens; j++){
+                strcpy(info.items[j-1].category, info.items[j].category);
+                info.items[j-1].current_value = info.items[j].current_value;
+                info.items[j-1].duration = info.items[j].duration;
+                info.items[j-1].IDitem = info.items[j].IDitem;
+                strcpy(info.items[j-1].name, info.items[j].name);
+                strcpy(info.items[j-1].user_buyer, info.items[j].user_buyer);
+                strcpy(info.items[j-1].user_sell, info.items[j].user_sell);
+                info.items[j-1].value = info.items[j].value;
+                info.items[j-1].new = true;
+            }
+            info.numItens--;
+            return;
+        }
+    }
+}
+
+void apagarPromocaoTerminados(){
+    for(int i = 0; i<info.numPromocao; i++){
+        if(info.promocoes[i].duration == 0){
+            for(int j=i+1; j<info.numPromocao; j++){
+                strcpy(info.promocoes[j-1].category, info.promocoes[j].category);
+                info.promocoes[j-1].descont = info.promocoes[j].descont;
+                info.promocoes[j-1].duration = info.promocoes[j].duration;
+                info.promocoes[j-1].new = true;
+            }
+            info.numPromocao--;
+            return;
+        }
+    }
+}
+
 void verificaExpiracao(){
     int res, fd_cli;
 
     for(int i = 0; i < info.numItens; i++){
         if(info.items[i].duration == 0){
-            if(strcmp(info.items[i].user_buyer , "") == 0)
-                printf("<Tempo expirou> Item %d - %s foi vendido: (categoria)%s (preco atual)%d (comprador)%s \n", info.items[i].IDitem, info.items[i].name, info.items[i].category, info.items[i].current_value, info.items[i].user_buyer);
-            else
+            if(strcmp(info.items[i].user_buyer, "") == 0)
                 printf("<Tempo expirou> Item: %d nao foi vendido!\n", info.items[i].IDitem);
-            info.items[i].new = false;
-            for (int i = 0; i < info.numUsers; i++){
-                fd_cli = open(info.listaUsers[i].pipe_name, O_WRONLY);
+            else
+                printf("<Tempo expirou> Item %d - %s foi vendido: (categoria)%s (preco atual)%d (comprador)%s \n", info.items[i].IDitem, info.items[i].name, info.items[i].category, info.items[i].current_value, info.items[i].user_buyer);
+            info.items[i].new = false;  
+            for (int j = 0; j < info.numUsers; j++){
+                fd_cli = open(info.listaUsers[j].pipe_name, O_WRONLY);
                 int value = FLAG_ITEM;
                 res = write(fd_cli, &value, sizeof(int));
                 res = write(fd_cli, &info.items[i], sizeof(item));
                 close(fd_cli);  
-            }  
-            apagarItems(info.items[i]);
+            }
         }
     }
+    apagarItemsTerminados();
     for(int i = 0; i < info.numPromocao; i++){
         if(info.promocoes[i].duration == 0){
             printf("<Tempo expirou> Promocao de %d na categoria %s expirou! \n", info.promocoes[i].descont, info.promocoes[i].category);
             info.promocoes[i].new = false;
-            for (int i = 0; i < info.numUsers; i++){
-                fd_cli = open(info.listaUsers[i].pipe_name, O_WRONLY);
+            for (int j = 0; j < info.numUsers; j++){
+                fd_cli = open(info.listaUsers[j].pipe_name, O_WRONLY);
                 int value = FLAG_PROM;
                 res = write(fd_cli, &value, sizeof(int));
                 res = write(fd_cli, &info.promocoes[i], sizeof(promocao));
                 close(fd_cli);  
             } 
-            apagarPromocao(info.promocoes[i]);
         } 
     }
+    apagarPromocaoTerminados();
 }
 
 void *increment_seconds(void *arg){
@@ -135,7 +170,6 @@ void *increment_seconds(void *arg){
         for(int i = 0; i < info.numPromocao; i++){
             info.promocoes[i].duration--;
         }
-        printf("%d\n", info.seconds);
         verificaExpiracao();
     }
     return NULL;
@@ -388,7 +422,7 @@ int main(int argc, char *argv[]){
                 if( info.numItens == 0)
                     printf("Nao existem itens!\n");
                 for(int i = 0; i < info.numItens ; i++){
-                    printf("Item %d - %s: (categoria)%s (preco atual)%d (preco base)%d (vendedor)%s (comprador)%s \n", info.items[i].duration, info.items[i].name, info.items[i].category, info.items[i].current_value, info.items[i].value, info.items[i].user_sell, info.items[i].user_buyer);
+                    printf("Item %d - %s: (categoria)%s (preco atual)%d (preco base)%d (vendedor)%s (comprador)%s \n", info.items[i].IDitem, info.items[i].name, info.items[i].category, info.items[i].current_value, info.items[i].value, info.items[i].user_sell, info.items[i].user_buyer);
                 }
             }
             if(strncmp(comando, "kick", 4) == 0){
@@ -402,6 +436,7 @@ int main(int argc, char *argv[]){
                             printf("\n User %s a terminar\n", info.listaUsers[i].username);
                             kill(atoi(arg),SIGUSR1);
                             apagarUser(info.listaUsers[i]);
+                            break;
                         }
                     }
                 }
