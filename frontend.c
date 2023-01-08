@@ -235,7 +235,6 @@ int main(int argc, char *argv[]){
                                     int value = FLAG_LICITACAO;
                                     write(fd_serv, &value, sizeof(int));
                                     write(fd_serv, &items[i], sizeof(items[i]));
-                                    read(fd_cli, &items[i], sizeof(items[i]));
                                 }
                                 else{
                                     printf("Impossivel licitar porque o valor atual e de %d! \n", items[i].current_value);
@@ -301,8 +300,17 @@ int main(int argc, char *argv[]){
                 }
             }else if(flag == FLAG_ITEM){
                 res = read(fd_cli, &auxItem, sizeof(auxItem));
+                int existe=0;
                 if(auxItem.new == true){
-                    if(numItens < MAXITEMS){
+                    for(int i=0; i<numItens; i++){
+                        if(items[i].IDitem == auxItem.IDitem){
+                            printf("\n %s licitou %d€ para item %d", auxItem.user_buyer, auxItem.current_value, auxItem.IDitem);
+                            strcpy(items[i].user_buyer, auxItem.user_buyer);
+                            items[i].current_value = auxItem.current_value;
+                            existe=1;
+                        }
+                    }
+                    if(existe == 0 && numItens < MAXITEMS){
                         strcpy(items[numItens].category, auxItem.category);
                         items[numItens].current_value = auxItem.current_value;
                         items[numItens].duration = auxItem.duration;
