@@ -55,6 +55,7 @@ void verificaExpiracao(){
     return;
 }
 
+
 void* LaunchPromotores(void * dados){
 
     promotor* data = (promotor *)dados;
@@ -63,8 +64,10 @@ void* LaunchPromotores(void * dados){
     int pl[2];
     pipe(pl);
     char promotor1[20], aux[20]="";
+    promocao auxProm;
     char path[100];
     int id;
+
 
     id=fork();
 
@@ -74,7 +77,17 @@ void* LaunchPromotores(void * dados){
         close(pl[0]);//fechar extremidade de leitura do pipe
         close(pl[1]);//fechar extremidade de escrita do pipe
 
+
         sprintf(path,"Promotores/%s",data->name);
+
+        if ( info.numPromocao < MAXPROMOCOES )
+        {
+        strcpy( info.promocoes[info.numPromocao].category, auxProm.category);
+        info.promocoes[info.numPromocao].descont= auxProm.descont;
+        info.promocoes[info.numPromocao].duration= auxProm.duration;
+
+        info.numPromocao++;
+        };
 
         execl(path, data->name, NULL);
 
